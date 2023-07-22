@@ -1,0 +1,329 @@
+/*
+ * GB - Audio driver.
+ *
+ * Author:      Richard Cornwell (rich@sky-visions.com)
+ * Copyright 2023, Richard Cornwell
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ */
+
+
+#include <cstdint>
+#include <SDL.h>
+#include <SDL_timer.h>
+#include <SDL_thread.h>
+#ifndef _WIN32
+#include <SDL_main.h>
+#endif
+#include <SDL_mixer.h>
+#if 0
+#include "Screen.h"
+#include "Cpu.h"
+#include "Joypad.h"
+#endif
+
+SDL_Window      *window;
+SDL_Renderer    *render;
+SDL_mutex       *display_mutex;
+SDL_cond        *display_wait;
+SDL_Color       color[16];
+SDL_AudioDeviceID audio_device;
+
+SDL_AudioSpec   request;
+SDL_AudioSpec   obtained;
+int             POWER = 1;
+
+bool            first_run = true;
+bool            draw = false;
+uint64_t        cpu_count;
+uint64_t        samples = 0;
+
+uint8_t         map[8] = { 0, 0, 0, 0, 0x7f, 0x7f, 0x7f, 0x7f};
+
+#define CYCLES_PER_SCREEN  17556
+int process(void *data) {
+//    Screen *screen = (Screen *)data;
+   
+ //   screen->cpu_count = 0;
+  //  screen->_cpu->run();
+    uint8_t    buffer[8192];
+    /* Set up screen */
+    int       delay = 0;
+    uint8_t   value = 0;
+    int       pos = 0;
+    int       count = 0;
+    int       ptr = 0;
+    render = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_PauseAudioDevice(audio_device, 0);
+
+    SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear( render);
+    SDL_RenderPresent( render );
+    while(POWER) {
+   //    screen->_cpu->step();
+       if (++count == 32) {
+           buffer[pos++] = map[ptr];
+           samples++;
+           delay++;
+           if (delay == 10) {
+              delay = 0;
+ ptr++;
+           if (ptr == 8) {
+              ptr = 0;
+           }
+           }
+           count = 0;
+       }
+       cpu_count++;
+       /* Run for 15.974ms */
+       if (cpu_count > CYCLES_PER_SCREEN) {
+          SDL_QueueAudio(audio_device, (void *)&buffer, pos);
+          pos = 0;
+          SDL_LockMutex(display_mutex);
+          while (cpu_count > CYCLES_PER_SCREEN && POWER) {
+               SDL_CondWaitTimeout(display_wait, display_mutex, 50);
+          }
+          SDL_UnlockMutex(display_mutex);
+       }
+    }
+    SDL_DestroyRenderer(render);
+    SDL_DestroyWindow(window);
+    return 0;
+}
+
+
+#if 0
+void Screen::init_screen()
+{
+}
+
+
+void
+Screen::draw_screen()
+{
+    SDL_RenderPresent( render );
+    /* Clear display */
+    SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderClear( render);
+}
+
+SDL_Color base_color[4] = {
+     { 0x9d, 0xbc, 0x0f, 0x00 },
+     { 0x7b, 0xac, 0x0f, 0x00 },
+     { 0x30, 0x62, 0x30, 0x00 },
+     { 0x0f, 0x38, 0x0f, 0x00 }
+};
+
+void
+Screen::set_palette(int num, uint8_t data)
+{
+     int i;
+
+     for (i = 0; i < 4; i++) {
+         int c = data & 03;
+
+         color[num+i] = base_color[c];
+         data >>= 2;
+     }
+}
+
+void
+Screen::draw_pixel(uint8_t pix, int row, int col)
+{
+     SDL_Rect    rect;
+
+     rect.y = row * _scale;
+     rect.x = col * _scale;
+     rect.h = _scale;
+     rect.w = _scale;
+     SDL_SetRenderDrawColor(render, color[pix].r, color[pix].g, color[pix].b,
+                            0xff);
+     SDL_RenderDrawRect(render, &rect);
+}
+#endif
+uint32_t
+timer_callback(uint32_t interval, void *param)
+{
+    SDL_Event     event;
+    SDL_UserEvent userevent;
+
+    memset(&userevent, 0, sizeof(SDL_UserEvent));
+    userevent.type = SDL_USEREVENT;
+    userevent.code = 0;
+    userevent.data1 = NULL;
+    userevent.data2 = NULL;
+
+    event.type = SDL_USEREVENT;
+    event.user = userevent;
+
+    SDL_PushEvent(&event);
+    return interval;
+}
+
+
+void
+run_sim()
+{
+    SDL_Event event;
+    uint64_t     e = 0;
+    uint8_t    buffer[8192];
+    /* Set up screen */
+    int       delay = 0;
+    uint8_t   value = 0;
+    int       pos = 0;
+    int       count = 0;
+    int       ptr = 0;
+    int       cycle = 0;
+    int       dclock = 0;
+
+    POWER = 1;
+    SDL_TimerID disp_timer = SDL_AddTimer(10, &timer_callback, NULL);
+    SDL_PauseAudioDevice(audio_device, 0);
+    while(POWER) {
+        uint64_t start_time = SDL_GetPerformanceCounter();
+        while(SDL_PollEvent(&event)) {
+          switch(event.type) {
+          case SDL_MOUSEBUTTONDOWN:
+               break;
+          case SDL_MOUSEBUTTONUP:
+               break;
+          case SDL_KEYUP:
+                /* Cursors direction buttons.
+                 *   X = A button.
+                 *   Z = B button.
+                 * shift = Select.
+                 * enter = Start.
+                 */
+                 switch(event.key.keysym.scancode) {
+                 case SDL_SCANCODE_Q:
+                         POWER = false;
+                         break;
+                 default:
+                         break;
+                 }
+                 break;
+
+          case SDL_KEYDOWN:
+                /* Cursors direction buttons.
+                 *   X = A button.
+                 *   Z = B button.
+                 * shift = Select.
+                 * enter = Start.
+                 */
+                 switch(event.key.keysym.scancode) {
+                 case SDL_SCANCODE_Q:
+                         POWER = false;
+                         break;
+                 default:
+                         break;
+                 }
+                 break;
+            case SDL_USEREVENT:
+                 e++;
+                 if (e == 100) {
+                    printf("Sample %d\n", samples);
+                    samples = 0;
+                    e = 0;
+                 }
+//                 SDL_LockMutex(display_mutex);
+   //              cpu_count = 0;
+ //                SDL_CondSignal(display_wait);
+  //               SDL_UnlockMutex(display_mutex);
+                 break;
+            case SDL_WINDOWEVENT:
+                    switch (event.window.event) {
+                    case SDL_WINDOWEVENT_CLOSE:
+                         break;
+                    }
+                 break;
+            case SDL_QUIT:
+                 POWER = 0;
+                 cpu_count = 0;
+                 break;
+            default:
+                 break;
+            }
+       }
+       pos = 0;
+       
+       dclock = 0;
+      for (count = 0; count < CYCLES_PER_SCREEN; count++) {
+       if (++cycle == 32) {
+           buffer[pos++] = map[ptr];
+           samples++;
+           cycle = 0;
+       }
+       //       if (++dclock == 2) {
+           delay += 1;
+           if (delay >= 2048) {
+              delay = 2048 - 298;
+               ptr++;
+               if (ptr == 8) {
+                  ptr = 0;
+               }
+        
+           }
+ //   dclock=0;
+  //        }
+       }
+       SDL_QueueAudio(audio_device, (void *)&buffer, pos);
+       uint64_t   end_time = SDL_GetPerformanceCounter();
+      
+       float elapsedMS = (end_time - start_time) /
+            (float)SDL_GetPerformanceFrequency() * 1000.0f;
+//printf("Cycle %d %u %f ms \n", pos, end_time - start_time, elapsedMS);
+       if (elapsedMS < 15.974) {
+ //  printf("Delay %f\n", 15.974 - elapsedMS);
+          SDL_Delay(floor(15.974 - elapsedMS));
+       }
+    }
+    SDL_RemoveTimer(disp_timer);
+//    SDL_DestroyCond(display_wait);
+//    SDL_DestroyMutex(display_mutex);
+    SDL_Quit();
+    return;
+}
+
+
+
+int main(int argc, char *argv[])
+{
+    int scale = 4;
+    POWER = 1;
+    /* Start SDL */
+    SDL_Init( SDL_INIT_EVERYTHING );
+
+    /* Create display locks */
+    display_mutex = SDL_CreateMutex();
+    display_wait = SDL_CreateCond();
+    window = SDL_CreateWindow("Game Boy", SDL_WINDOWPOS_UNDEFINED, 
+                                     SDL_WINDOWPOS_UNDEFINED,
+                           160*scale, 144*scale, SDL_WINDOW_RESIZABLE );
+    request.freq = 32768;
+    request.format = AUDIO_U8;
+    request.channels = 1;
+    request.samples = 8192;
+    audio_device = SDL_OpenAudioDevice(NULL, 0, &request, &obtained, 0);
+    if (audio_device == 0)
+       fprintf(stderr, "Failed to get audio device\n");
+    run_sim();
+}
+
+
