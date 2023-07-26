@@ -80,10 +80,10 @@ public:
      void cycle() {
         if (++_inter == 128) {
             _inter = 0;
-            if (_xfer) {
+            if (_xfer && _clock) {
                 uint8_t    bit = (_buffer & 0x80) != 0;
                 
-// printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _count);
+if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _count);}
                 _buffer <<= 1;
                 if (_in & 0x80) {
                    _buffer |= 1;
@@ -136,7 +136,7 @@ public:
      virtual void write(uint8_t data, uint16_t addr) {
          if (addr & 1) {
              _buffer = data;
-// printf("Write serial %02x\n", _buffer);
+if (trace_flag) printf("Write serial %02x\n", _buffer);
          } else {
              /* Select control register */
              _clock = data & 1;
@@ -144,7 +144,7 @@ public:
              if (data & 0x80) {
                  _count = 0;
                  _xfer = true;
-// printf("Start serial %02x\n", _buffer);
+if (trace_flag) printf("Start serial %02x\n", _buffer);
              }
          }
      }
