@@ -81,6 +81,7 @@ protected:
      int        _duty;          /**< Duty cycle */
      uint8_t    _chan;          /**< Channel number */
      bool       _dac_enable;    /**< Channel's DAC is disabled */
+     bool       _delay;         /**< One cycle delay after trigger */
 
      const static uint8_t sq_wave[32];
      const static uint8_t int_wave[32];
@@ -94,7 +95,7 @@ public:
           _pos = _volume = _int_vol = _int_vol_len = 0;
           _vol_sweep = _vol_dir = _vol_len = _duty = 0;
           _dac_enable = true;
-          _use_len = _vol_env = false;
+          _delay = _use_len = _vol_env = false;
           _wave_start = 0;
           _wave_end = 8;
           _max_length = 64;
@@ -148,6 +149,7 @@ public:
                  _vol_len = _int_vol_len;
                  _vol_env = true;
              }
+             _delay = true;
          }
      }
 
@@ -223,6 +225,10 @@ public:
       * just wait until it overflows.
       */
      virtual void cycle() {
+         if (_delay) {
+             _delay = false;
+             return;
+         }
          if (active) {
              if (_freq_cnt & 0x800) {
                  _freq_cnt = _int_freq;
@@ -235,6 +241,7 @@ public:
                  } else {
                      sample = 0;
                  }
+                 _delay = true;
              } else {
                  _freq_cnt++;
              }
@@ -584,12 +591,25 @@ public:
      }
 
      /**
+      * @brief Update frequence counter for one clock pulse.
+      *
+      * We count the timer up until it overflows. At which time we select the
+      * next wave sample and advance the sample, then we reset the timer. Otherwise
+      * just wait until it overflows.
+      */
+     void early_cycle() {
+         if (!_delay) {
+             cycle();
+         }
+     }
+
+     /**
       * @brief Update wave buffer for read of wave memory.
       */
      virtual void wave_cycle() {
          if (active) {
              _last_read = 0xff;
-             if (_freq_cnt == 0x800) {
+             if (_freq_cnt == 0x7ff) {
                   int pos = (_pos) & 0x1e;
                   _last_read = (_wave[pos] << 4);
                   _last_read |= _wave[pos | 1];
@@ -671,7 +691,13 @@ public:
       */
       void read_wave(uint8_t& data, uint16_t index) const {
            if (active) {
-              data = _last_read;
+             uint8_t last_read = 0xff;
+             if (_freq_cnt == 0x7ff) {
+                  int pos = (_pos) & 0x1e;
+                  last_read = (_wave[pos] << 4);
+                  last_read |= _wave[pos | 1];
+             }
+              data = last_read;
            } else {
                index <<= 1;
                data = _wave[index] << 4;
@@ -781,18 +807,24 @@ public:
       * counter clock to 2^n. 
       */
      virtual void cycle() override {
-          if (_div == 0) {
-              /* Do clocking */
-              _div = _div_ratio;
-              if (_clk_cnt == 0) {
-                  shift();
-                  _clk_cnt = (1 << _clk_freq) & 0x3fff;
-              } else {
-                  _clk_cnt--;
-              }
-          } else {
-              _div--;
-          }
+         if (_delay) {
+             _delay = false;
+             return;
+         }
+         if (active) {
+             if (_div == 0) {
+                 /* Do clocking */
+                 _div = _div_ratio;
+                 if (_clk_cnt == 0) {
+                     shift();
+                     _clk_cnt = (1 << _clk_freq) & 0x3fff;
+                 } else {
+                     _clk_cnt--;
+                 }
+             } else {
+                 _div--;
+             }
+         }
      }
 
      /**
@@ -1002,8 +1034,7 @@ public:
      *
      */
     void cycle_early() {
-       s3.cycle();
-       s3.wave_cycle();
+       s3.early_cycle();
     }
 
     /**
