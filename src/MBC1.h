@@ -94,12 +94,13 @@ public:
                  * 16/8  0-3      select high ROM address */
                 if (_mbc1m) {
                     new_bank = ((uint32_t)(data & 0x3)) << 18;
+                    new_bank |= _bank & 0x3c000;
                 } else {
                     new_bank = ((uint32_t)(data & 0x3)) << 19;
+                    new_bank |= _bank & 0x7c000;
                 }
-                new_bank |= _bank & 0x7c000;
                 _bank = new_bank & _mask;
-                if (_mode) {
+                if (!_mbc1m && _mode) {
                     _ram_bank = ((uint32_t)(data)) << 13;
                     if (_ram) {
                         _ram->set_bank(_ram_bank);
@@ -255,17 +256,13 @@ public:
                 /*       0 - 1F   bank for 0x4000-0x7fff */
                 if (_mbc1m) {
                     new_bank = ((uint32_t)(data & 0xf)) << 14;
+                    new_bank |= _rom_bank->get_bank() & 0xc0000;
                 } else {
                     new_bank = ((uint32_t)(data & 0x1f)) << 14;
+                    new_bank |= _rom_bank->get_bank() & 0x180000;
                 }
-                if (new_bank == 0) {
-                    if (_mbc1m) {
-                       if ((data & 0x10) == 0) {
-                           new_bank = 0x4000;
-                       }
-                    } else {
-                       new_bank = 0x4000;
-                    }
+                if ((data & 0x1f) == 0) {
+                    new_bank = 0x4000;
                 }
                 new_bank &= _size - 1;
                 _rom_bank->set_bank(new_bank);

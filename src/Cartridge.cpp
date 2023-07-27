@@ -31,6 +31,7 @@
 #include "MBC2.h"
 #include "MBC3.h"
 #include "MBC5.h"
+#include "MMM01.h"
 
 int rom_type[0x1f] = {
      /* 0 */   ROM,
@@ -129,6 +130,21 @@ bool Cartridge::ram_battery() {
 }
 
 /**
+ * @brief Check if header checksum is valid.
+ *
+ * Sum header data at a page of cartridge to determine if checksum is valid.
+ */
+bool Cartridge::header_checksum(int bank) {
+     uint8_t   chk = 0;
+     int       addr = (bank << 15);
+
+     for (int i = 0x134; i <= 0x14c; i++) {
+         chk = chk - _data[i + addr] - 1;
+     }
+     return (chk == _data[0x14d + addr]);
+}
+
+/**
  * @brief Give cartridge object a pointer to the contents of the ROM.
  *
  * Set pointers to ROM and size.
@@ -168,11 +184,17 @@ void Cartridge::set_rom(uint8_t *data, size_t size) {
  */
 void Cartridge::set_mem(Memory *mem) {
      _mem = mem;
-     std::cout << "Set mem" << std::endl;
      if (_data[0x147] > (sizeof(rom_type)/sizeof(int))) {
          _rom = new Cartridge_ROM(_mem, _data, _size);
      } else {
          int  type = rom_type[_data[0x147]];
+
+         /* Special check for MMM01 cartridge */
+         if ((type & 0xf) == MBC1 && _size > (64 * 1024)) {
+             if (header_checksum((_size / (32 * 1024) - 1))) {
+                 type = rom_type[_data[0x147 + (_size - (32 * 1024))]];
+             }
+         }
          switch (type & 0xf) {
          case ROM:
               _rom = new Cartridge_ROM(_mem, _data, _size);
@@ -192,6 +214,7 @@ void Cartridge::set_mem(Memory *mem) {
               _rom = new Cartridge_MBC5(_mem, _data, _size);
               break;
          case MMM01:
+              _rom = new Cartridge_MMM01(_mem, _data, _size);
               break;
         }
         if (type & CRAM && _ram == NULL) {

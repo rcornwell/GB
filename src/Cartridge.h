@@ -498,6 +498,8 @@ public:
 
     void set_mem(Memory *mem);
 
+    bool header_checksum(int bank);
+
     void disable_rom(uint8_t data) {
          if (_rom != NULL) {
              _rom->disable_rom(data);
