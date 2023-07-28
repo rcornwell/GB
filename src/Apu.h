@@ -148,6 +148,9 @@ public:
              if (_int_vol_len != 0) {
                  _vol_len = _int_vol_len;
                  _vol_env = true;
+             } else {
+                 _vol_len = 0;
+                 _vol_env = false;
              }
              _delay = true;
          }

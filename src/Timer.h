@@ -54,7 +54,6 @@ public:
      Timer() : _apu(NULL) {
         _tima = _tma = _tac = 0;
         _time_over = false;
-//        _div = 0x2364;
         _div = 8;
      }
 
@@ -98,7 +97,7 @@ public:
 
           _div += 4;
           _time_over = false;
-if (trace_flag) printf("Div %04x TIMA %02x TMA %02x %d\n", _div, _tima, _tma, prev);
+//if (trace_flag) printf("Div %04x TIMA %02x TMA %02x %d\n", _div, _tima, _tma, prev);
           if ((_tac & 0x4) != 0) {
              if ((_tima & 0x100) != 0) {
                  /* Generate timer interrupt */
