@@ -52,13 +52,10 @@
  */
 void OAM::scan_oam(int row, uint8_t lcdc)
 {
-    int    obj;                          /* Current object been check */
-    int    ins;                          /* Insertion point */
+    int    obj;                               /* Current object been check */
+    int    ins;                               /* Insertion point */
     int    high = (lcdc & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
-//    int    mask = (lcdc & OBJ_SIZE) ? 0x7f0: 0x7f8; /* Mask for hieght */
-//    int    r;                            /* Row of object */
-//    int    y;                            /* Y index of object */
-    int    obj_num;                      /* Number working at */
+    int    obj_num;                           /* Number working at */
 
     /* Initialize objects to invalid */
     for (obj = 0; obj < 10; obj++) {
@@ -107,13 +104,13 @@ void OAM::scan_oam(int row, uint8_t lcdc)
          if (_objs[ins].X == X) {
             continue;
          }
-        
+
          /* If X larger, shift later objects down */
          if (X != _objs[obj_num].X && _objs[obj_num].X != 0xff) {
              for (int i = 9; i >= ins && i > 0; i--) {
                  _objs[i] = _objs[i-1];
              }
-         } 
+         }
          _objs[obj_num].X = X;
          _objs[obj_num].Y = _data[obj+TY];
          _objs[obj_num].flags = _data[obj+TF];
@@ -130,15 +127,14 @@ void OAM::scan_oam(int row, uint8_t lcdc)
 void Ppu::check_lyc()
 {
     if (LY == LYC) {
-       if ((STAT & STAT_LYC_F) == 0) {
+        if ((STAT & STAT_LYC_F) == 0) {
             STAT |= STAT_LYC_F;
-            if ((STAT & STAT_LYC_IRQ) != 0 && _irq_flg) {
-               /* Set IF bit 1 */
-               *_irq_flg |= 0x2;
+            if ((STAT & STAT_LYC_IRQ) != 0) {
+                post_irq(PPU_IRQ);
             }
-       }
+        }
     } else {
-       STAT &= ~STAT_LYC_F;
+        STAT &= ~STAT_LYC_F;
     }
 }
 
@@ -149,9 +145,8 @@ void Ppu::check_lyc()
 void Ppu::enter_mode0()
 {
     /* Post any interrupts based on line. */
-    if ((STAT & MODE_0_IRQ) != 0 && _irq_flg) {
-       /* Set IF Bit 1 */
-       *_irq_flg |= 0x2;
+    if ((STAT & MODE_0_IRQ) != 0) {
+        post_irq(PPU_IRQ);
     }
 }
 
@@ -164,15 +159,12 @@ void Ppu::enter_mode1()
 
 //if (trace_flag) printf("Vblank\n");
      /* Generate VBlank interrupts */
-     if ((STAT & MODE_1_IRQ) != 0 && _irq_flg) {
-        /* Set IF bit 1 */
-        *_irq_flg |= 0x2;
+     if ((STAT & MODE_1_IRQ) != 0) {
+         post_irq(PPU_IRQ);
      }
-     if (_irq_flg) {
-         *_irq_flg |= 0x1;
-     }
+     post_irq(VBLANK_IRQ);
 }
- 
+
 /**
  * @brief Entering Mode 2, post interrupt if enabled.
  *
@@ -180,9 +172,8 @@ void Ppu::enter_mode1()
 void Ppu::enter_mode2()
 {
     /* interrupt if we want to know mode switch */
-    if ((STAT & MODE_2_IRQ) != 0 && _irq_flg) {
-       /* Set IF Bit 1 */
-       *_irq_flg |= 0x2;
+    if ((STAT & MODE_2_IRQ) != 0) {
+        post_irq(PPU_IRQ);
     }
 }
 
@@ -422,7 +413,7 @@ void Ppu::fill_pix(int tile, int st_pix, int row) {
 /**
  * @brief Shift Pixel and Object FIFO left one pixel.
  *
- * Pixel and Object fifo are shifted left one pixel. Transparent 
+ * Pixel and Object fifo are shifted left one pixel. Transparent
  * pixels are loaded in last location. Pixel count is decremented by
  * one.
  */
@@ -611,7 +602,7 @@ void Ppu::display_pixel() {
             _f_state = GETA;
             _f_type = OBJ;
             return;
-        } 
+        }
         /* Wait until ready with data */
         if (_f_state != RDY) {
             return;
@@ -685,37 +676,28 @@ void Ppu::display_pixel() {
  * @param[out] data Data read from register.
  * @param[in]  addr Register to read.
  */
-void Ppu::read(uint8_t &data, uint16_t addr) {
+void Ppu::read_reg(uint8_t &data, uint16_t addr) const {
      switch(addr & 0xf) {
-     case 0: data = LCDC; break;         /* ff40 */
-     case 1: data = STAT | 0x80;         /* ff41 */
-             if ((data & LCDC_ENABLE) != 0) {
-//                 if (LY == LYC) {
- //                    data |= STAT_LYC_F;
-  //               }
-//                 if (_mode != 3) {
-                     data |= _mode;
- //                } else if (LX < 168) {
-  //                   data |= _mode;
-   //              }
-             }
-             break;
-     case 2: data = SCY; break;          /* ff42 */
-     case 3: data = SCX; break;          /* ff43 */
-     case 4: data = LY; break;           /* ff44 */
-     case 5: data = LYC; break;          /* ff45 */
-     case 6: if (_mem) {
-                 _mem->read_dma(data);
-             }
-             break;         /* DMA ff46 */
-     case 7: data = BGP; break;          /* ff47 */
-     case 8: data = OBP0; break;         /* ff48 */
-     case 9: data = OBP1; break;         /* ff49 */
-     case 10: data = WY; break;          /* ff4a */
-     case 11: data = WX; break;          /* ff4b */
-     default:
-              data = 0xff;
-              break;
+     case 0x0: data = LCDC; break;         /* ff40 */
+     case 0x1: data = STAT | 0x80;         /* ff41 */
+               if ((data & LCDC_ENABLE) != 0) {
+                   data |= _mode;
+               }
+               break;
+     case 0x2: data = SCY; break;          /* ff42 */
+     case 0x3: data = SCX; break;          /* ff43 */
+     case 0x4: data = LY; break;           /* ff44 */
+     case 0x5: data = LYC; break;          /* ff45 */
+     case 0x6: if (_mem) {
+                   _mem->read_dma(data);
+               }
+               break;                      /* ff46 DMA */
+     case 0x7: data = BGP; break;          /* ff47 */
+     case 0x8: data = OBP0; break;         /* ff48 */
+     case 0x9: data = OBP1; break;         /* ff49 */
+     case 0xa: data = WY; break;           /* ff4a */
+     case 0xb: data = WX; break;           /* ff4b */
+     default:  data = 0xff; break;
      }
 }
 
@@ -725,7 +707,7 @@ void Ppu::read(uint8_t &data, uint16_t addr) {
  * Write control registers.
  *
  * Writing to LCDC register will start displaying if there is
- * change in flag. Writing to the DMA control register tells the 
+ * change in flag. Writing to the DMA control register tells the
  * Memory object to start a DMA transfer. Writing to the palette
  * registers passes the changes onto the screen object so it can
  * convert them into SDL colors. Other updates just change the value
@@ -734,57 +716,57 @@ void Ppu::read(uint8_t &data, uint16_t addr) {
  * @param[out] data Data write to register.
  * @param[in]  addr Register to write.
  */
-void Ppu::write(uint8_t data, uint16_t addr) {
+void Ppu::write_reg(uint8_t data, uint16_t addr) {
      switch(addr & 0xf) {
-     case 0:                          /* ff40 */
-             /* Check if we are enabling or disabling controller */
-             if (((LCDC ^ data) & LCDC_ENABLE) != 0) {
-                 if ((data & LCDC_ENABLE) != 0) {
-                     LX = LY = 0;
-                     _mode = 0;
-                     _start = true;
-                     _first_line = true;
-                     _dot_clock = 0;
-                     starting = 2;
-                     cycle_cnt = 0;
-                 } else {
-                     if (_mem) {
-                         _mem->add_slice(&_data, 0x8000);
-                         _mem->add_slice(&_map, 0x9800);
-                         _mem->add_slice(&_oam, 0xfe00);
-                     }
-                     _mode = 0;
-                     _start = false;
-                     _next_line = false;
-                     _dot_clock = 0;
-                     starting = 0;
-                 }
-             }
-             LCDC = data;           
+     case 0x0:                          /* ff40 */
+               /* Check if we are enabling or disabling controller */
+               if (((LCDC ^ data) & LCDC_ENABLE) != 0) {
+                   if ((data & LCDC_ENABLE) != 0) {
+                       LX = LY = 0;
+                       _mode = 0;
+                       _start = true;
+                       _first_line = true;
+                       _dot_clock = 0;
+                       starting = 2;
+                       cycle_cnt = 0;
+                   } else {
+                       if (_mem) {
+                           _mem->add_slice(&_data, 0x8000);
+                           _mem->add_slice(&_map, 0x9800);
+                           _mem->add_slice(&_oam, 0xfe00);
+                       }
+                       _mode = 0;
+                       _start = false;
+                       _next_line = false;
+                       _dot_clock = 0;
+                       starting = 0;
+                   }
+               }
+               LCDC = data;
 //printf("Write LCDC %02x\n", LCDC);
-             break;
-     case 1: STAT = (data & 0x78) | (STAT & STAT_LYC_F);    /* ff41 */
-             break;
-     case 2: SCY = data; break;       /* ff42 */
-     case 3: SCX = data; break;       /* ff43 */
-     case 4: break;                   /* LY ff44 */
-     case 5: LYC = data; break;       /* ff45 */
-     case 6: if (_mem) {
-                 _mem->write_dma(data);
-             }
-             break;                   /* DMA ff46 */
-     case 7: BGP = data;              /* ff47 */
-             set_palette(0, data);
-             break;
-     case 8: OBP0 = data;             /* ff48 */
-             set_palette(4, data);
-             break;
-     case 9: OBP1 = data;             /* ff49 */
-             set_palette(8, data);
-             break;
-     case 10: WY = data; break;       /* ff4a */
-     case 11: WX = data; break;       /* ff4b */
+               break;
+     case 0x1: STAT = (data & 0x78) | (STAT & STAT_LYC_F);    /* ff41 */
+               break;
+     case 0x2: SCY = data; break;       /* ff42 */
+     case 0x3: SCX = data; break;       /* ff43 */
+     case 0x4: break;                   /* ff44 LY */
+     case 0x5: LYC = data; break;       /* ff45 */
+     case 0x6: if (_mem) {
+                   _mem->write_dma(data);
+               }
+               break;                   /* ff46 DMA */
+     case 0x7: BGP = data;              /* ff47 */
+               set_palette(0, data);
+               break;
+     case 0x8: OBP0 = data;             /* ff48 */
+               set_palette(4, data);
+               break;
+     case 0x9: OBP1 = data;             /* ff49 */
+               set_palette(8, data);
+               break;
+     case 0xa: WY = data; break;       /* ff4a */
+     case 0xb: WX = data; break;       /* ff4b */
      default:
-              break;
+               break;
      }
 }

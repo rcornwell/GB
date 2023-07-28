@@ -31,6 +31,7 @@
 #include <iostream>
 
 #include "Memory.h"
+#include "Device.h"
 
 /**
  * @brief Layout of Game Boy Graphics processor memory space.
@@ -96,6 +97,7 @@
  */
 
 /**
+ * @class Tile_data
  * @brief Tile Data area of Memory.
  *
  * Tiles are stored in even/odd byte pairs. The even byte gives the 
@@ -106,6 +108,7 @@
  * any of the bytes are updated. This simplifes the processing of 
  * pixels when it is being displayed. Each row of the tiles is stored
  * as an 8 byte array.
+ *
  */
 class Tile_data : public Slice {
       uint8_t     _data[6144];        /**< Copy of RAM */
@@ -191,6 +194,7 @@ public:
 };
  
 /**
+ * @class Tile_map
  * @brief Tile Map.
  *
  * The tile map is just a small section of memory. It is
@@ -253,11 +257,15 @@ public:
      virtual int bus() const override { return 1; }
 };
 
+/**
+ * @brief Used to hold objects to be display on a given line.
+ *
+ */
 struct OBJ {
-     uint8_t     X;
-     uint8_t     Y;
-     uint8_t     flags;
-     uint8_t     tile;
+     uint8_t     X;        /**< X location */
+     uint8_t     Y;        /**< Y location */
+     uint8_t     flags;    /**< Cached flags */
+     uint8_t     tile;     /**< Cached tile */
 };
 
 #define LCDC_ENABLE  0x80  /* Enable the LCD controller */
@@ -281,6 +289,7 @@ struct OBJ {
 #define STAT_LYC_IRQ 0x40  /* Post IRQ on LYC Match */
 
 /**
+ * @class OAM
  * @brief OAM memory holds Object data values.
  *
  * OAM holds object to display. Each OBJ holds the sprites X,Y
@@ -368,15 +377,17 @@ enum Fetcher_State { GETA, GETB, DATALA, DATALB,
                      DATAHA, DATAHB, RDY };
 enum Fetcher_type  { NONE, BG, WIN, OBJ };
 /**
+ * @class Ppu
  * @brief Main Picture Processing Unit Object.
  *
  * This object is responsible for generating the screen image every
  * display cycle.
  */
-class Ppu {
+class Ppu : public Device {
      Tile_data   _data;            /**< Tile Data object */
      Tile_map    _map;             /**< Tile Map object */
      OAM         _oam;             /**< OAM object. */
+     Memory     *_mem;             /**< Pointer to Memory object */
      
      uint8_t     LCDC;             /**< Display control */
      uint8_t     STAT;             /**< Display status and IRQ flags */
@@ -412,9 +423,6 @@ class Ppu {
      int         _brow;            /**< Current background row */
      int         _btile;           /**< Current background tile */
 
-
-     Memory     *_mem;             /**< Pointer to memory object */
-     uint8_t    *_irq_flg;         /**< Pointer to interrupt request */
 public:
 
      /**
@@ -422,8 +430,9 @@ public:
       *
       * Set default Palettes and mode to Vblank.
       */
-     Ppu() : _mem(NULL), _irq_flg(NULL) {
+     Ppu() {
          int   i;
+         _mem = NULL;
          LX = LY = 0;
          LYC = 0;
          SCX = SCY = WX = WY = 0;
@@ -455,6 +464,24 @@ public:
      }
 
      /**
+      * @brief Address of APU unit.
+      *
+      * @return base address of device.
+      */
+     virtual uint8_t reg_base() const override {
+         return 0x40;
+     }
+
+     /**
+      * @brief Number of registers APU unit has.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 12;
+     }
+
+     /**
       * @brief Connect to memory object.
       *
       * Set memory object pointer. Also map display items into
@@ -469,17 +496,6 @@ public:
           _mem->add_slice(&_oam, 0xfe00);
      }
 
-     /**
-      * @brief Connect to interrupt register
-      *
-      * Set pointer to where interrupts need to be updated.
-      *
-      * @param irq_flg Pointer to interrupt register in CPU.
-      */
-     void set_irq(uint8_t *irq_flg) {
-          _irq_flg = irq_flg;
-     }
-
      void check_lyc();
 
      void enter_mode0();
@@ -488,11 +504,11 @@ public:
 
      void enter_mode2();
 
-     void read(uint8_t &data, uint16_t addr);
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override;
 
-     void write(uint8_t data, uint16_t addr);
+     virtual void write_reg(uint8_t data, uint16_t addr) override;
 
-     void cycle();
+     virtual void cycle() override;
 
      void fill_pix(int tile, int st_pix, int row);
 

@@ -32,11 +32,12 @@
 #include "Memory.h"
 #include "IO.h"
 #include "Cartridge.h"
+#include "Joypad.h"
 #include "Timer.h"
 #include "Ppu.h"
 #include "Apu.h"
 #include "Serial.h"
-#include "System.h"
+
 
 #define SIGN  0x80
 #define ZERO  0x80
@@ -89,31 +90,29 @@ public:
         /* Create memory and ram objects */
         mem = new Memory(&timer, &ppu, &apu, &ser);
         ram = new RAM(8192);
-        /* These need to be added first since 0xe000 overlaps I/O and
-         * video space */
+        io = new IO_Space(&irq_en, &irq_flg);
+        /* These need to be added first since 0xe000 overlaps I/O and video space */
         mem->add_slice(ram, 0xc000);
         mem->add_slice(ram, 0xe000);
         /* Map I/O space into memory */
-        mem->add_slice(&io,  0xff00);
+        mem->add_slice(io,  0xff00);
         /* Connect cartridge to memory object */
         cart->set_mem(mem);
-        /* Set up PPU */
+        cart_dev.set_cart(cart);
+        /* PPU needs to manage memory */
         ppu.set_mem(mem);
         /* System needs to know about joypad to send button presses to it. */
         set_joypad(&joy);
-        /* Connect timer to audio processing */
+        /* Add in devices */
+        io->add_device(&timer);
+        io->add_device(&ppu);
+        io->add_device(&joy);
+        io->add_device(&apu);
+        io->add_device(&ser);
+        io->add_device(&cart_dev);
+        /* Timer needs to send events to APU */
         timer.set_apu(&apu);
-        /* Install devices in I/O space */
-        io.set_timer(&timer);
-        io.set_cart(cart);
-        io.set_ppu(&ppu);
-        io.set_joypad(&joy);
-        io.set_apu(&apu);
-        io.set_serial(&ser);
-        /* Must be called after I/O space knows about devices.
-         * Allows devices to interrupt CPU.
-         */
-        io.set_irq(&irq_en, &irq_flg);
+
         running = false;
         F = ZERO;
         sp = 0;
@@ -121,6 +120,8 @@ public:
         ime = false;
         ime_hold = false;
         halted = false;
+        irq_en = 0x00;
+        irq_flg = 0x00;
         for (int i = 0; i < 8; i++) {
             regs[i] = 0;
         }
@@ -132,6 +133,7 @@ public:
 
     virtual ~Cpu()
     {
+        delete io;
         delete ram;
         delete mem;
     }
@@ -151,9 +153,10 @@ public:
     bool      running;   /**< Cpu is running */
 
     Cartridge  *cart;    /**< Cartridge with game */
+    Cartridge_Device cart_dev; /**< Cartridge device, disable ROM */
     Memory    *mem;      /**< Memory object */
     RAM       *ram;      /**< Working RAM */
-    IO_Space  io;        /**< I/O Space */
+    IO_Space  *io;       /**< I/O Space */
     Timer     timer;     /**< Timer device */
     Ppu       ppu;       /**< Graphics processing unit */
     Apu       apu;       /**< Audio processing unit */

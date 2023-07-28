@@ -33,7 +33,7 @@ set (${PROJECT_NAME}_VERSION_MAJOR 0)
 set (${PROJECT_NAME}_VERSION_MINOR 0)
 
 # Generate Doxygen documentation files
-option(BUILD_DOC "Build documenation" ON)
+option(BUILD_DOC "Build documenation" OFF)
 option(RUN_TESTS "Run tests" OFF)
 
 # Add a custom CMake Modules directory

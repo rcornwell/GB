@@ -27,11 +27,11 @@ set(GB_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 FILE(GLOB GB_SRCS Apu.cpp Cpu.cpp ROM.cpp Memory.cpp Ppu.cpp Cartridge.cpp)
 target_sources(${PROJECT_NAME} PUBLIC main.cpp ${GB_SRCS})
 
-if (RUN_TESTS) 
+if (RUN_TESTS)
 add_executable(gb_test ${GB_SRCS} test/main.cpp test/cpu_instrs.cpp test/instr_timing.cpp test/mem_timing.cpp)
 target_include_directories(gb_test PRIVATE ${GB_PATH})
 target_include_directories(gb_test PRIVATE ${CPPUTEST_INCLUDE_DIRS})
-add_test(NAME gb_test COMMAND gb_test 
+add_test(NAME gb_test COMMAND gb_test
 	WORKING_DIRECTORY ${GB_PATH}/test)
 target_link_directories(gb_test PRIVATE ${CPPUTEST_LIBRARIES})
 if(MSVC)
@@ -39,7 +39,7 @@ if(MSVC)
 endif()
 target_link_libraries(gb_test ${CPPUTEST_LDFLAGS})
 #add_custom_target(gb_test COMMAND gb_test)
-#add_custom_command(TARGET gb_test POST_BUILD 
+#add_custom_command(TARGET gb_test POST_BUILD
 #	COMMAND gb_test
 #	WORKING_DIRECTORY ${GB_PATH}/test
 #	COMMENT "Running gb test" VERBATIM)

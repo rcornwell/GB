@@ -144,7 +144,7 @@ inline void Cpu::op_sbc(uint8_t v)
 /**
  * @brief Process logical and operations.
  *
- * Process and operation, and update flags. The 
+ * Process and operation, and update flags. The
  * carry and negative flag are cleared. Half carry is always set.
  *
  * @param v  value to operate on.
@@ -163,7 +163,7 @@ inline void Cpu::op_and(uint8_t v)
 /**
  * @brief Process logical xor operations.
  *
- * Process xor operation, and update flags. The 
+ * Process xor operation, and update flags. The
  * carry, half carry and negative flag are cleared.
  *
  * @param v  value to operate on.
@@ -182,7 +182,7 @@ inline void Cpu::op_xor(uint8_t v)
 /**
  * @brief Process logical or operations.
  *
- * Process or operation, and update flags. The 
+ * Process or operation, and update flags. The
  * carry, half carry and negative flag are cleared.
  *
  * @param v  value to operate on.
@@ -926,7 +926,7 @@ void Cpu::op_push()
  * @brief Call subroutine at address of next two bytes.
  *
  * Call the subroutine at the address in the next two bytes.
- * If cond is zero, just fetch next two bytes, otherwise 
+ * If cond is zero, just fetch next two bytes, otherwise
  * push current PC onto stack and transfer to address.
  *
  * @param cond If non-zero do call, otherwise nothing.
@@ -1064,7 +1064,7 @@ void Cpu::op_pchl()
 /**
  * @brief Disable interrupts.
  *
- * Set interrupts as disabled. 
+ * Set interrupts as disabled.
  *
  * @memberof Cpu
  */
@@ -1124,7 +1124,7 @@ void Cpu::op_nop()
 /**
  * @brief Process Interrupt request.
  *
- * Process interrupt request, push the PC on the stack and 
+ * Process interrupt request, push the PC on the stack and
  * use IF flags to determine which vector to use.
  */
 
@@ -1132,7 +1132,7 @@ void Cpu::do_irq()
 {
     uint16_t addr = 0x40;
     uint8_t  data;
-    
+
     /* Disable interrupt */
     ime = false;
     halted = false;
@@ -1165,7 +1165,7 @@ void Cpu::do_irq()
  *
  * BIT expands to BITX with each bit.
  * BITX expands to BITR with register.
- * BITR expands to opcode + bit + register. 
+ * BITR expands to opcode + bit + register.
  */
 #define BITR(name, base2, bit, reg) case base2 + (bit << 3) + (int)(reg): \
                                         op_##name<reg>(1 << bit); break;
@@ -1245,7 +1245,7 @@ void Cpu::second(uint8_t data)
                        case b+0x10: op_##f<DE>(); break; \
                        case b+0x20: op_##f<HL>(); break; \
                        case b+0x30: op_##f<SP>(); break;
-                     
+
 #define STK(f,b1,b2)   case b1:      op_##f<BC>(); break; \
                        case b1+0x10: op_##f<DE>(); break; \
                        case b1+0x20: op_##f<HL>(); break; \
@@ -1283,7 +1283,7 @@ void Cpu::second(uint8_t data)
                        case b2+0x08: op_##f((F & ZERO) != 0); break; \
                        case b2+0x10: op_##f((F & CARRY) == 0); break; \
                        case b2+0x18: op_##f((F & CARRY) != 0); break;
-                       
+
 /**
  * @brief execute one instruction.
  *
@@ -1297,7 +1297,7 @@ void Cpu::second(uint8_t data)
 void Cpu::step()
 {
     if (!running) {
-        mem->internal();
+        mem->idle();
         return;
     }
 
@@ -1524,7 +1524,7 @@ string Cpu::disassemble(uint8_t ir, uint16_t addr, int &len)
         }
         break;
     case IMD:
-        temp << op->name << " " << reg_names[(ir >> 3) & 07] << 
+        temp << op->name << " " << reg_names[(ir >> 3) & 07] <<
                         ",$" << std::hex << (addr & 0xff);
         break;
     case STK:
@@ -1599,7 +1599,7 @@ void Cpu::trace()
     int       len;
     uint8_t   div;
 
-    timer.read(div, 0);
+    timer.read_reg(div, 0);
     mem->read_nocycle(ir, pc);
     mem->read_nocycle(t, pc+1);
     addr = t;

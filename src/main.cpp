@@ -54,27 +54,26 @@ SDL_Color         color[16];
 SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
 SDL_AudioSpec     obtained;
-uint8_t           disp[160][144];
+//uint8_t           disp[160][144];
 
-uint8_t         audio_buffer[2048]; /**< Buffer of generated samples */
-int             audio_pos;          /**< Position to write audio samples */
+uint8_t           audio_buffer[2048]; /**< Buffer of generated samples */
+int               audio_pos;          /**< Position to write audio samples */
 
-#define CYCLES_PER_SCREEN /*17825*/ 17556
-#define FRAME_TIME 16.650f
-//#define FRAME_TIME 16.750f
+#define CYCLES_PER_SCREEN 17556
+#define FRAME_TIME        16.650f
 
-int           scale;                /**< Screen scaling */
-bool          POWER;                /**< Game boy power state */
-bool          trace_flag;           /**< Trace instruction execution */
+int               scale;              /**< Screen scaling */
+bool              POWER;              /**< Game boy power state */
+bool              trace_flag;         /**< Trace instruction execution */
 
-string        rom_name;
-string        sav_name;
+string            rom_name;           /**< ROM name being loaded */
+string            sav_name;           /**< Backup RAM Memory */
 
-string        host;
-int           port;
+string            host;
+int               port;
 
-Joypad        *joy;
-Cpu           *cpu;
+Joypad            *joy;               /**< Pointer to Joypad device */
+Cpu               *cpu;               /**< Pointer to CPU */
 
 /**
  * @brief  main, entry to system.
@@ -219,7 +218,7 @@ int main(int argc, char **argv)
              std::cout << "Save file: " << ram_size << std::endl;
              save_file.open(sav_name, ios_base::out|ios_base::binary);
              if (!save_file.is_open()) {
-                 std::cerr << "Unable to save RAM to: " << sav_name 
+                 std::cerr << "Unable to save RAM to: " << sav_name
                                  << std::endl;
              } else {
                  save_file.write((char *)ram_data, ram_size);
@@ -252,7 +251,6 @@ void init_window()
                            160*scale, 144*scale, SDL_WINDOW_RESIZABLE );
     /* Request audio playback */
     request.freq = 32768;
-//    request.freq = 44100;
     request.format = AUDIO_U8;
     request.channels = 2;
     request.samples = 64;
@@ -262,9 +260,9 @@ void init_window()
        exit(1);
     }
 
-    color[12].r = 0xff;
-    color[13].g = 0xff;
-    color[14].b = 0xff;
+//    color[12].r = 0xff;
+//    color[13].g = 0xff;
+//    color[14].b = 0xff;
 }
 
 /**

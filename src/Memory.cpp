@@ -34,6 +34,10 @@
 #include "Apu.h"
 #include "Serial.h"
 
+void Memory::idle() {
+     _cycles++;
+}
+
 void Memory::cycle() {
      _cycles++;
      _timer->cycle();
@@ -60,7 +64,7 @@ void Memory::read(uint8_t &data, uint16_t addr) {
                 cycle();
                 return;
             }
-            /* If CPU attempts to access memory during DMA, 
+            /* If CPU attempts to access memory during DMA,
              * it returns DMA data instead of date.
              */
             if (_mem[(addr >> 8) & 0xff]->bus() == _dma_bus) {
@@ -128,7 +132,7 @@ void Memory::read_nocycle(uint8_t &data, uint16_t addr) {
 
 void Memory::add_slice_sz(Slice *slice, uint16_t base, size_t sz) {
     int   sl = (base >> 8) & 0xff;
-    
+
     for (size_t i = 0; i < sz; i++) {
         _mem[sl+i] = slice;
     }
@@ -137,7 +141,7 @@ void Memory::add_slice_sz(Slice *slice, uint16_t base, size_t sz) {
 void Memory::add_slice(Slice *slice, uint16_t base) {
     int     sl = (base >> 8) & 0xff;
     size_t  sz = slice->size();
-    
+
     for (size_t i = 0; i < sz; i++) {
         _mem[sl+i] = slice;
     }
@@ -167,7 +171,6 @@ void Memory::write_dma(uint8_t data) {
     } else {
          _dma_count = -1;
     }
-    
 }
 
 void Memory::read_dma(uint8_t& data) {

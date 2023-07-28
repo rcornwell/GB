@@ -38,7 +38,7 @@
  * Handles bank switching for MMM01 type cartridges.
  *
  * MMM01 cartridges come up in unmapped mode which maps the top 32K of ROM to
- * 0-0x7fff. 
+ * 0-0x7fff.
  *
  * Writing to 0x4000-0x5fff writes the lower 2 bits into the upper 2 bits
  * of ROM bank address. In mode 1 the lower 4 bits are also put into the
@@ -47,7 +47,8 @@
  * Writing to 0x6000-0x7fff writes the lower bit into the mode register.
  * Setting Mode to 1 enables RAM bank selecting, Mode 0 selects RAM bank
  * 0 only.
-
+ *
+ * @verbatim
  * unmapped Mapped
  *            22-15 14 13-00
  *            ^      ^   ^
@@ -60,16 +61,8 @@
  *            ^        ^   ^    ^
  *            |        |   |    Lower address bits.
  *            |        |   +--- ROM Bank Low (Map 00 to 01)
- *            |        +------- ROM Bank Mid 
+ *            |        +------- ROM Bank Mid
  *            +---------------- ROM Bank High
-
-     22 2|1 111|11 11|1100|0000|0000
-     21 0|9 876|54 32|1098|7654|3210
-     11 0|0 000|00 00|0000|0000|0000
-     
-      6     0     0    0    0    0    High bank
-      1     8     0    0    0    0    Mid Bank
-      0     7     c    0    0    0    Low bank
  *
  *
  * Mapped, Multiplexed Mode 0 & 1:
@@ -87,6 +80,7 @@
  *            |        |   +--- And of ROM Bank Low and ROM Bank Mask
  *            |        +------- RAM Bank Low 
  *            +---------------- ROM Bank High
+ * @endverbatim
  *
  */
 class Cartridge_MMM01_bank : public Cartridge_bank {

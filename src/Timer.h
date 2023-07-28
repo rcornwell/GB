@@ -27,7 +27,7 @@
 #pragma once
 
 #include <cstdint>
-//#include "Device.h"
+#include "Device.h"
 #include "Apu.h"
 
 /**
@@ -35,14 +35,13 @@
  *
  * Provide regular interrupts to the game system.
  */
-class Timer {
+class Timer : public Device {
      uint16_t    _div;              /**< Dividor register */
      uint16_t    _tima;             /**< Current timer register */
      uint8_t     _tma;              /**< Timer reload register */
      uint8_t     _tac;              /**< Timer control register */
      bool        _time_over;        /**< Timer overflowed */
-     uint8_t    *_irq_flg;          /**< Cpu interrupt register */
-     Apu        *_apu;              /**< Apu since timer needs to 
+     Apu        *_apu;              /**< Apu since timer needs to
                                          be able to give clocks to
                                          the APU */
 
@@ -52,7 +51,7 @@ class Timer {
      };
 
 public:
-     Timer() : _irq_flg(NULL), _apu(NULL) {
+     Timer() : _apu(NULL) {
         _tima = _tma = _tac = 0;
         _time_over = false;
 //        _div = 0x2364;
@@ -60,14 +59,21 @@ public:
      }
 
      /**
-      * @brief Connect to interrupt register
+      * @brief Address of APU unit.
       *
-      * Set pointer to where interrupts need to be updated.
-      *
-      * @param irq_flg Pointer to interrupt register in CPU.
+      * @return base address of device.
       */
-     void set_irq(uint8_t *irq_flg) {
-          _irq_flg = irq_flg;
+     virtual uint8_t reg_base() const override {
+         return 0x04;
+     }
+
+     /**
+      * @brief Number of registers APU unit has.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 4;
      }
 
      /**
@@ -86,19 +92,17 @@ public:
       * Mask points to the bit in the DIV register we need to check.
       * Also every 512 cycles we need to call the APU.
       */
-     void cycle() {
+     virtual void cycle() override {
           uint16_t  prev     = !!(_div & t_mask[_tac&3]);
           uint16_t  prev_snd = !!(_div & 0x1000);
 
           _div += 4;
           _time_over = false;
-//if (trace_flag) printf("Div %04x TIMA %02x TMA %02x %d\n", _div, _tima, _tma, prev);
+if (trace_flag) printf("Div %04x TIMA %02x TMA %02x %d\n", _div, _tima, _tma, prev);
           if ((_tac & 0x4) != 0) {
              if ((_tima & 0x100) != 0) {
                  /* Generate timer interrupt */
-                 if (_irq_flg) {
-                     *_irq_flg |= 0x4;
-                 }
+                 post_irq(TIMER_IRQ);
                  /* Reload tima */
                  _tima = _tma;
                  _time_over = true;
@@ -123,7 +127,7 @@ public:
       * @param[out] data Value read from register.
       * @param[in] addr Address of register.
       */
-     void read(uint8_t &data, uint16_t addr) {
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override {
           switch(addr & 0x3) {
           case 0: data = (_div >> 8) & 0xff; break;     /* ff04 */
           case 1: data = _tima;       break;            /* ff05 */
@@ -137,18 +141,18 @@ public:
       *
       * Update the timer registers. Writing to DIV will always
       * reset it. If the timer was previously enabled and the new
-      * state is enabled, check if the frequency selection bit 
+      * state is enabled, check if the frequency selection bit
       * changed from 1 to 0, if so trigger a timer update.
       *
       * @param data Data to write to register.
       * @param addr Address of register to write.
       */
-     void write(uint8_t data, uint16_t addr) {
+     virtual void write_reg(uint8_t data, uint16_t addr) override {
           switch(addr & 0x3) {
           case 0:                        /* ff04 */
                    if ((_tac & 0x4) != 0) {
                        uint16_t   prev = !!(_div & t_mask[_tac&3]);
-                 
+
                        /* If new value is enabled trigger count if change */
                        if (prev) {
                            _tima++;
@@ -156,15 +160,15 @@ public:
                    }
                    _div = 0;
                    break;
-          case 1: /* If tima is updated on same cycle it overflows, 
+          case 1: /* If tima is updated on same cycle it overflows,
                      grab tma rather then new data */
                   if (_time_over) {
                       _tima = _tma;
                   } else {
-                      _tima = data; 
+                      _tima = data;
                   }
                   break;                  /* ff05 */
-          case 2: _tma = data; 
+          case 2: _tma = data;
                   /* If we overflowed on this cycle, update tima also */
                   if (_time_over) {
                       _tima = data;
@@ -186,9 +190,7 @@ public:
                       }
                       if ((_tima & 0x100) != 0) {
                           /* Generate timer interrupt */
-                          if (_irq_flg) {
-                              *_irq_flg |= 0x4;
-                          }
+                          post_irq(TIMER_IRQ);
                           /* Reload tima */
                           _tima = _tma;
                           _time_over = true;

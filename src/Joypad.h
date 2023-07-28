@@ -28,6 +28,7 @@
 #pragma once
 
 #include <cstdint>
+#include "Device.h"
 
 #define RIGHT 0x10
 #define LEFT  0x20
@@ -47,35 +48,31 @@
  * to read. Setting either of the output lines to 1 results
  * In 1's for unpushed buttons and 0's for pushed buttons.
  */
-class Joypad {
+class Joypad : public Device {
 protected:
-     uint8_t     *_irq_flg;            /**< Interrupt flag pointer */
      uint8_t     _out_bits;            /**< Current output state */
      uint8_t     _joy_buttons;         /**< Current buttons pressed */
 
 public:
 
-     Joypad () : _irq_flg(NULL), _out_bits(0xc0), _joy_buttons(0) { };
+     Joypad () : _out_bits(0xc0), _joy_buttons(0) { };
 
-     /**
-      * @brief Connect to interrupt register
+   /**
+      * @brief Address of APU unit.
       *
-      * Set pointer to where interrupts need to be updated.
-      *
-      * @param irq_flg Pointer to interrupt register in CPU.
+      * @return base address of device.
       */
-     virtual void set_irq(uint8_t *irq_flg) {
-         _irq_flg = irq_flg;
+     virtual uint8_t reg_base() const override {
+         return 0x00;
      }
 
      /**
-      * @brief Post interrupt flag.
+      * @brief Number of registers APU unit has.
       *
-      * When there is a change in button state, generate an interrupt.
-      * @param value mask of bit to set..
+      * @return number of registers.
       */
-     virtual void post_irq(uint8_t value) {
-         *_irq_flg |= value;
+     virtual int reg_size() const override {
+         return 1;
      }
 
      /**
@@ -85,7 +82,7 @@ public:
       * @param[out] data Data read from buttons.
       * @param[in] addr Address to read from, ignored since only one device.
       */
-     virtual void read(uint8_t &data, [[maybe_unused]]uint16_t addr) {
+     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
          data = _out_bits & 0xF0;
 
          if ((_out_bits & 0x20) != 0) {
@@ -101,18 +98,18 @@ public:
      /**
       * @brief Write Joypad bits.
       *
-      * Set outbits indicated which row to select. 
+      * Set outbits indicated which row to select.
       * @param[in] data Data to write to outbits.
       * @param[in] addr Address to write to, ignored since only one device.
       */
-     virtual void write(uint8_t data, uint16_t addr) {
+     virtual void write_reg(uint8_t data, uint16_t addr) override {
          _out_bits = data | 0xc0;
      }
 
      /**
       * @brief Press buttons.
       *
-      * Called by SDL polling routine when a key is pressed. Sets the bit for 
+      * Called by SDL polling routine when a key is pressed. Sets the bit for
       * the button in joy_buttons for tracking. If outbits selects any pressed
       * buttons generate an interrupt.
       * @param button Mask of button pressed.
@@ -129,14 +126,14 @@ public:
          }
 
          if (f) {
-             *_irq_flg |= 0x10;
+             post_irq(JOYPAD_IRQ);
          }
      }
 
      /**
       * @brief Release buttons.
       *
-      * Called by SDL polling routine when a key is released. Clears the bit in 
+      * Called by SDL polling routine when a key is released. Clears the bit in
       * the current button register.
       * @param button Mask of button pressed.
       */

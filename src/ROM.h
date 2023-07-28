@@ -69,7 +69,7 @@ public:
      * Boot ROM is fixed at one page.
      * @return size of Boot ROM in pages.
      */
-    virtual size_t size() const override { 
+    virtual size_t size() const override {
        return 1;
     }
 
@@ -77,7 +77,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.

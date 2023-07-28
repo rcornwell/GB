@@ -65,7 +65,7 @@ public:
                 break;
         case 3:          /* 0x6000 - 0x7fff */
                 /* MBC3   select memory model */
-                /*         0 select 16/8 
+                /*         0 select 16/8
                  *         1 select 4/32
                  */
                 _latch = data & 1;
@@ -133,7 +133,7 @@ public:
     /**
      * @brief Handle writes to lower bank.
      *
-     * Write to lower bank either enable/disables to RAM or 
+     * Write to lower bank either enable/disables to RAM or
      * Selects the lower 7 bits of the ROM bank.
      */
     virtual void write(uint8_t data, uint16_t addr) override {

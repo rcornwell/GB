@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <iostream>
 #include "Memory.h"
+#include "Device.h"
 #include "ROM.h"
 
 /**
@@ -69,13 +70,13 @@ public:
     /**
      * @brief Create a Cartridge RAM from file.
      *
-     * Create RAM space for a Cartidge, size is number of bytes 
+     * Create RAM space for a Cartidge, size is number of bytes
      * in file, and data points to existing data.
      *
      * @param data Pointer to data to access.
      * @param size Size of data in bytes.
      */
-    explicit Cartridge_RAM(uint8_t *data, size_t size) : 
+    explicit Cartridge_RAM(uint8_t *data, size_t size) :
                  _bank(0), _need_delete(false) {
         _data = data;
         _mask = 0x1fff;
@@ -88,7 +89,7 @@ public:
      *
      * Free memory created.
      */
-    ~Cartridge_RAM() { 
+    ~Cartridge_RAM() {
          if (_need_delete) {
              delete[] _data;
          }
@@ -137,7 +138,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -199,7 +200,7 @@ public:
     /**
      * @brief Create a bank object.
      *
-     * Create a bank object, that will access the upper 16K of 
+     * Create a bank object, that will access the upper 16K of
      * ROM space with bank selection.
      * Generally Memory mappers will override this class.
      *
@@ -214,7 +215,7 @@ public:
     /**
      * @brief Sets pointer to RAM object.
      *
-     * Bank controller needs to know this since RAM bank selection 
+     * Bank controller needs to know this since RAM bank selection
      * is typically done in the address range of the BANK.
      *
      * @param ram  Pointer to Cartridge RAM object.
@@ -277,7 +278,7 @@ public:
      * @param[in] data Value to write to memory at address.
      * @param[in] addr Addess to access.
      */
-    virtual void write([[maybe_unused]]uint8_t data, 
+    virtual void write([[maybe_unused]]uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {
     }
 
@@ -295,7 +296,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -345,7 +346,7 @@ public:
     /**
      * @brief Sets pointer to RAM object.
      *
-     * Bank controller needs to know this since RAM bank selection 
+     * Bank controller needs to know this since RAM bank selection
      * is typically done in the address range of the BANK.
      *
      * @param ram  Pointer to Cartridge RAM object.
@@ -400,7 +401,7 @@ public:
      *
      * @return size of ROM in 256 byte chunks.
      */
-    virtual size_t size() const override { 
+    virtual size_t size() const override {
           size_t sz = _size >> 8;
           return (sz > 128) ? 64 : sz;
     }
@@ -409,7 +410,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -445,9 +446,10 @@ enum Cart_type {
     ROM, MBC1, MBC2, MBC3, MBC5, MMM01
 };                                /**< Types of Cartridges. */
 
-#define CRAM 0x100 
+#define CRAM 0x100
 #define BAT 0x200
 #define TIM 0x400
+
 
 /**
  * @brief Top level of ROM Cartridge.
@@ -506,3 +508,67 @@ public:
          }
     }
 };
+
+/**
+ * @brief Cartridge device to disable ROM.
+ *
+ * Device handles sending IO Space writes to ROM.
+ */
+class Cartridge_Device : public Device {
+     Cartridge       *_cart;
+public:
+     Cartridge_Device() : _cart(NULL) {}
+
+     /**
+      * @brief Give device pointer to Cartridge.
+      *
+      * @param cart Cartridge device pointer.
+      */
+     void set_cart(Cartridge *cart) {
+          _cart = cart;
+     }
+
+    /**
+     * @brief Cartridge device, used to disable ROM.
+     *
+     * This location is Write only.
+     *
+     * @param[out] data Data read from register.
+     * @param[in] addr Address of register to read.
+     */
+     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+          data = 0xff;
+     }
+
+    /**
+     * @brief Cartridge device, used to disable ROM.
+     *
+     * This just passes the data to cartridge to disable the ROM.
+     *
+     * @param[in] data Data write to register.
+     * @param[in] addr Address of register to write..
+     */
+     virtual void write_reg(uint8_t data,
+                            [[maybe_unused]]uint16_t addr) override {
+          _cart->disable_rom(data);
+     }
+
+     /**
+      * @brief Cartridge Device has one location.
+      *
+      * @return base address of device.
+      */
+     virtual uint8_t reg_base() const override {
+         return 0x50;
+     }
+
+     /**
+      * @brief Cartridge Device has one location.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 1;
+     }
+} ;
+

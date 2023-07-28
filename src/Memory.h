@@ -89,7 +89,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -150,7 +150,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -176,7 +176,7 @@ protected:
      uint16_t    _mask;     /**< Mask of valid address bits */
      size_t      _size;     /**< Size of Area in 256 byte slices. */
 
-public: 
+public:
      /**
       * @brief Create empty object, with no data.
       */
@@ -241,7 +241,7 @@ public:
  */
 class RAM : public Area {
 
-public:     
+public:
      /**
       * @brief Create area of memory of size bytes.
       *
@@ -267,7 +267,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -291,7 +291,7 @@ public:
  * page 0xff.
  *
  * Memory handles cycle timing, every time memory is accessed the timer
- * and ppu cycle function are called to handle background processing of 
+ * and ppu cycle function are called to handle background processing of
  * time related functions. The CPU calls internal() if it is not accessing
  * memory.
  */
@@ -316,8 +316,9 @@ public:
       * @param timer Timer Object used to update timer events.
       * @param ppu  Ppu Object used to update graphics screen.
       * @param apu  Apu Object used to update sound generation.
+      * @param serial Serial Object used to clock out data.
       */
-     Memory(Timer *timer, Ppu *ppu, Apu *apu, Serial *serial) : 
+     Memory(Timer *timer, Ppu *ppu, Apu *apu, Serial *serial) :
             _dma_flag(false), _timer(timer), _ppu(ppu), _apu(apu), _serial(serial), _cycles(0) {
          /* Map all of memory to empty regions. */
          for (int i = 0; i < 256; i++) {
@@ -341,7 +342,7 @@ public:
       * @brief Read memory.
       *
       * Read from memory, use the upper 8 bits of address to select
-      * which slices read function to call. This also processes the 
+      * which slices read function to call. This also processes the
       * current DMA cycle and calls the timer and ppu cycle function.
       *
       * @param[out] data Results of read of memory.
@@ -369,6 +370,13 @@ public:
       * timer and ppu cycle function.
       */
      void internal();
+
+     /**
+      * @brief Idle cycle.
+      *
+      * Used during initialization, just bumps cycle count.
+      */
+     void idle();
 
      /**
       * @brief Read memory without doing cycle..
@@ -409,7 +417,7 @@ public:
       * @brief Point memory at base to empty.
       *
       * Point memory to empty so the underlying slice can't be
-      * accessed, base should point to original mapping point. 
+      * accessed, base should point to original mapping point.
       *
       * @param[in] base Starting address to point to empty
       */

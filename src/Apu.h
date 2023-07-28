@@ -30,7 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-//#include "Device.h"
+#include "Device.h"
 #include "System.h"
 
 /**
@@ -94,7 +94,7 @@ public:
           _chan = _freq_cnt = _int_freq = _count = _length = _int_len = 0;
           _pos = _volume = _int_vol = _int_vol_len = 0;
           _vol_sweep = _vol_dir = _vol_len = _duty = 0;
-          _dac_enable = true;
+          _dac_enable = false;
           _delay = _use_len = _vol_env = false;
           _wave_start = 0;
           _wave_end = 8;
@@ -724,7 +724,7 @@ public:
 };
 
 /**
- * @ brief Sound Channel 4
+ * @brief Sound Channel 4
  *
  * @class S4 Apu.h "Apu.h"
  *
@@ -804,7 +804,7 @@ public:
       *
       * If the divide ratio reachs zero. We reset the divide ratio, then if the
       * polynomial counter clock reached zero we generate and output and reset the
-      * counter clock to 2^n. 
+      * counter clock to 2^n.
       */
      virtual void cycle() override {
          if (_delay) {
@@ -992,9 +992,7 @@ public:
  * @endverbatim
  *
  */
-class Apu {
-     uint8_t     *_irq_flg;        /**< Interrupt pointer */
-
+class Apu : public Device {
      uint8_t      regs[2];         /**< NR5x registers */
      int          _fr_counter;     /**< Frame counter */
      int          _sample_cnt;     /**< Sample counter */
@@ -1012,21 +1010,9 @@ public:
         _fr_counter = 0;
         _sample_cnt = 0;
         _enabled = false;
-        _irq_flg = NULL;
         regs[0] = 0;
         regs[1] = 0;
         SO1 = SO2 = 0;
-     }
-
-     /**
-      * @brief Connect to interrupt register
-      *
-      * Set pointer to where interrupts need to be updated.
-      *
-      * @param irq_flg Pointer to interrupt register in CPU.
-      */
-     void set_irq(uint8_t *irq_flg) {
-          _irq_flg = irq_flg;
      }
 
     /**
@@ -1043,7 +1029,7 @@ public:
      * Every 32 cycles sample the output of each channel. Then call
      * each channels cycle function to update their frequency count.
      */
-    void cycle() {
+    void cycle() override {
        _sample_cnt++;
        if (_sample_cnt == 32) {
            /* Generate a audio sample */
@@ -1140,14 +1126,35 @@ public:
     }
 
     /**
+      * @brief Address of APU unit.
+      *
+      * @return base address of device.
+      */
+     virtual uint8_t reg_base() const override {
+         return 0x10;
+     }
+
+     /**
+      * @brief Number of registers APU unit has.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 48;
+     }
+
+    /**
      * @brief Audio Processor Unit register read.
      *
      * Read chanel registers. Each channel implements
      * an individual read for each register. By use
      * of virtual functions channels can return the
      * correct value along with any stuck bits.
+     *
+     * @param[out] data Data read from register.
+     * @param[in] addr Address of register to read.
      */
-    void read(uint8_t &data, uint16_t addr) const {
+    virtual void read_reg(uint8_t &data, uint16_t addr) const override {
         switch(addr & 0xff) {
         case 0x10:    /* NR 10 */
                       s1.read_reg0(data);
@@ -1248,8 +1255,11 @@ public:
      * an individual write for each register. By use
      * of virtual functions channels can update internal
      * values as they need to.
+     *
+     * @param[in] data Data write to register.
+     * @param[in] addr Address of register to write.
      */
-    void write(uint8_t data, uint16_t addr) {
+    virtual void write_reg(uint8_t data, uint16_t addr) override {
 if (trace_flag) printf("Write %02x %02x\n", (addr & 0xff), data);
         switch(addr & 0xff) {
         case 0x10:    /* NR 10 */  /* Sound data */

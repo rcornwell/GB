@@ -28,15 +28,15 @@
 #pragma once
 
 #include <cstdint>
+#include "Device.h"
 
 
 /**
  * @brief Serial data link
  *
  */
-class Serial {
+class Serial : public Device {
 protected:
-     uint8_t     *_irq_flg;            /**< Interrupt flag pointer */
      uint8_t      _buffer;             /**< Serial buffer */
      uint8_t      _out;                /**< Character output */
      uint8_t      _in;                 /**< Next character to read */
@@ -47,28 +47,25 @@ protected:
 
 public:
 
-     Serial () : _irq_flg(NULL), _buffer(0), _out(0), _in(0xff), _count(0), 
+     Serial () : _buffer(0), _out(0), _in(0xff), _count(0),
                  _xfer(false), _clock(false), _inter(2) { };
 
      /**
-      * @brief Connect to interrupt register
+      * @brief Address of Serial unit.
       *
-      * Set pointer to where interrupts need to be updated.
-      *
-      * @param irq_flg Pointer to interrupt register in CPU.
+      * @return base address of device.
       */
-     virtual void set_irq(uint8_t *irq_flg) {
-         _irq_flg = irq_flg;
+     virtual uint8_t reg_base() const override {
+         return 0x1;
      }
 
      /**
-      * @brief Post interrupt flag.
+      * @brief Number of registers Serial unit has.
       *
-      * When there is a change in button state, generate an interrupt.
-      * @param value mask of bit to set..
+      * @return number of registers.
       */
-     virtual void post_irq(uint8_t value) {
-         *_irq_flg |= value;
+     virtual int reg_size() const override {
+         return 2;
      }
 
      /**
@@ -77,12 +74,12 @@ public:
        * Serial link operates at a 8192Hz clock rate, so transfer one bit
        * every 128 clock times.
        */
-     void cycle() {
+     virtual void cycle() override {
         if (++_inter == 128) {
             _inter = 0;
             if (_xfer && _clock) {
                 uint8_t    bit = (_buffer & 0x80) != 0;
-                
+
 if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _count);}
                 _buffer <<= 1;
                 if (_in & 0x80) {
@@ -98,7 +95,7 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
                    _count = 0;
                    _xfer = false;
                    _in = 0xff;
-                   post_irq(0x8);
+                   post_irq(SERIAL_IRQ);
                 }
             }
          }
@@ -112,7 +109,7 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
       * @param[out] data Data read from serial link.
       * @param[in] addr Address to read from.
       */
-     virtual void read(uint8_t &data, uint16_t addr) {
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override {
          if (addr & 1) {
              /* Select data regiser */
              data = _buffer;
@@ -129,11 +126,11 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
      /**
       * @brief Write Serial data.
       *
-      * Set outbits indicated which row to select. 
+      * Set outbits indicated which row to select.
       * @param[in] data Data to write to serial link.
       * @param[in] addr Address to write to.
       */
-     virtual void write(uint8_t data, uint16_t addr) {
+     virtual void write_reg(uint8_t data, uint16_t addr) override {
          if (addr & 1) {
              _buffer = data;
 if (trace_flag) printf("Write serial %02x\n", _buffer);

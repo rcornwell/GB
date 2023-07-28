@@ -135,7 +135,7 @@ public:
     /**
      * @brief Handle writes to lower bank.
      *
-     * Writing to the lower bank either enables/disables to RAM or 
+     * Writing to the lower bank either enables/disables to RAM or
      * selects the lower 4 bits of ROM bank selection.
      */
     virtual void write(uint8_t data, uint16_t addr) override {

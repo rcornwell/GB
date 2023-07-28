@@ -109,7 +109,7 @@ public:
                 break;
         case 3:          /* 0x6000 - 0x7fff */
                 /* MBC1   select memory model */
-                /*         0 select 16/8 
+                /*         0 select 16/8
                  *         1 select 4/32
                  */
                 _mode = data & 1;
@@ -232,7 +232,7 @@ public:
     /**
      * @brief Handle writes to lower bank.
      *
-     * Writing to the lower bank either enables/disables to RAM or 
+     * Writing to the lower bank either enables/disables to RAM or
      * selects the lower 5 bits (or 4 for MBC1M) of ROM bank selection.
      */
     virtual void write(uint8_t data, uint16_t addr) override {
