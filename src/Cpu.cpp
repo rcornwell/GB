@@ -428,7 +428,7 @@ inline void Cpu::op_sla()
 /**
  * @brief Process shift register right arithmetic instruction.
  *
- * Shift register left one bit. Bit 7 remains unchanged. Bit 0 to carry.
+ * Shift register right one bit. Bit 7 remains unchanged. Bit 0 to carry.
  * Carry and Zero flag are set, Negative and Half carry are cleared.
  *
  * @tparam R Set register to shift.
@@ -449,7 +449,7 @@ inline void Cpu::op_sra()
 /**
  * @brief Process shift register right logical instruction.
  *
- * Shift register left one bit. Bit 7 cleared. Bit 0 to carry.
+ * Shift register right one bit. Bit 7 cleared. Bit 0 to carry.
  * Carry and Zero flag are set, Negative and Half carry are cleared.
  *
  * @tparam R Set register to shift.
