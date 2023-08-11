@@ -273,8 +273,8 @@ class Cartridge_MMM01 : public Cartridge_ROM {
     uint32_t              _top_bank;         /**< Top bank of ROM */
 
 public:
-    Cartridge_MMM01(Memory *mem, uint8_t *data, size_t size) :
-       Cartridge_ROM(mem, data, size), _mapped(false) {
+    Cartridge_MMM01(Memory *mem, uint8_t *data, size_t size, bool color) :
+       Cartridge_ROM(mem, data, size, color), _mapped(false) {
         _rom_bank = new Cartridge_MMM01_bank(data, size);
         _top_bank = size - (32 * 1024);
         _rom_bank_mid = 0;
@@ -314,9 +314,7 @@ public:
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);
         _mem->add_slice_sz(&_empty, 0xa000, 32);
-        if (_rom_enable) {
-            _mem->add_slice(&_rom, 0);
-        }
+        disable_rom(_rom_disable);
     }
 
     /**

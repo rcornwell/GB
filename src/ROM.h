@@ -36,8 +36,12 @@
  * cartridge.
  */
 class ROM : public Slice {
-    const  static uint8_t rom_data[256];    /**< Boot rom contents */
+    const  static uint8_t bmg_data[256];    /**< Original Boot rom contents */
+    const  static uint8_t cgb_data[2304];   /**< Color Boot rom contents */
+    bool        _color;                     /**< Color Game Boy */
 public:
+
+    explicit ROM(bool color) : _color(color) { }
 
     /**
      * @brief Read from Boot ROM.
@@ -48,7 +52,11 @@ public:
      * @param[in] addr  Location to read data from.
      */
     virtual void read(uint8_t &data, uint16_t addr) const override {
-       data = rom_data[addr & 0xff];
+       if (_color) {
+           data = cgb_data[addr & 0x7ff];
+       } else {
+           data = bmg_data[addr & 0xff];
+       }
     }
 
     /**
@@ -70,7 +78,7 @@ public:
      * @return size of Boot ROM in pages.
      */
     virtual size_t size() const override {
-       return 1;
+       return (_color) ? 9 : 1;
     }
 
      /**

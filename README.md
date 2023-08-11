@@ -16,6 +16,8 @@ To build the emulator either git clone it or extract the zip file from github. I
 The emulator accepts a couple arguments:
 
 - -# Where # is the scale factor for image display.
+- -c Start emulator as Game Boy Color.
+- -b Start emulator as Original Game Boy [*default*].
 - -t Will provide debugging trace of the execution of instructions.
 - -p # Specifies the port to open to connect the serial link to.
 - -h *hostname* Specifies the host to connect to.

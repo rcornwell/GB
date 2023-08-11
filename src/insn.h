@@ -104,7 +104,7 @@ INSN(push,STK,0305,0)            /* rp */
 INSN(sbc, ROPR,0230,0)            /* a,r a,# */
 INSN(sub, ROPR,0220,0)            /* a,r a,# */
 INSN(scf, OPR,0067,0)
-INSN(stop,OP2,0020,0)
+INSN(stop,OPR,0020,0)
 INSN(xor, ROPR,0250,0)            /* a,r a,# */
 
 INSN2(bit, BIT,0313,0100)           /* b,r */

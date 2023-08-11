@@ -50,7 +50,7 @@ using namespace std;
 
 SDL_Window       *window;
 SDL_Renderer     *render;
-SDL_Color         color[16];
+SDL_Color         palette[128];
 SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
 SDL_AudioSpec     obtained;
@@ -65,6 +65,7 @@ int               audio_pos;          /**< Position to write audio samples */
 int               scale;              /**< Screen scaling */
 bool              POWER;              /**< Game boy power state */
 bool              trace_flag;         /**< Trace instruction execution */
+bool              color;              /**< Color Game Boy */
 
 string            rom_name;           /**< ROM name being loaded */
 string            sav_name;           /**< Backup RAM Memory */
@@ -94,6 +95,7 @@ int main(int argc, char **argv)
      scale = 1;
      POWER = 1;
      trace_flag = false;
+     color = false;
 
      /* Scan for arguments */
      for (i = 1; i < argc; i++) {
@@ -113,6 +115,8 @@ int main(int argc, char **argv)
                  case '9':
                            scale = *p - '0';
                            break;
+                 case 'c': color = true; break;
+                 case 'b': color = false; break;
                  case 't': trace_flag = true; break;
                  case 'p': port = atoi(argv[++i]); break;
                  case 'h': host = argv[++i]; break;
@@ -169,7 +173,7 @@ int main(int argc, char **argv)
                 rom_name << std::endl;
 
      /* Create Cartridge object */
-     cart = new Cartridge();
+     cart = new Cartridge(color);
 
      cart->set_rom(rom, rom_size);
 
@@ -198,7 +202,7 @@ int main(int argc, char **argv)
      }
 
      /* Create an emulation system. */
-     cpu = new Cpu(cart);
+     cpu = new Cpu(cart, color);
 
      /* Set up SDL windows */
      init_window();
@@ -296,10 +300,10 @@ draw_screen()
 }
 
 SDL_Color base_color[4] = {
-     { 0x9d, 0xbc, 0x0f, 0x00 },
-     { 0x7b, 0xac, 0x0f, 0x00 },
-     { 0x30, 0x62, 0x30, 0x00 },
-     { 0x0f, 0x38, 0x0f, 0x00 }
+     { 0x9d, 0xbc, 0x0f, 0xff },
+     { 0x7b, 0xac, 0x0f, 0xff },
+     { 0x30, 0x62, 0x30, 0xff },
+     { 0x0f, 0x38, 0x0f, 0xff }
 };
 
 /**
@@ -315,9 +319,23 @@ set_palette(int num, uint8_t data)
      for (i = 0; i < 4; i++) {
          int c = data & 03;
 
-         color[num+i] = base_color[c];
+         palette[num+i] = base_color[c];
          data >>= 2;
      }
+}
+
+/**
+ * @brief Set SDL palette based on packed color data.
+ *
+ * Set drawing colors based on
+ */
+void
+set_palette_col(int num, uint8_t data_l, uint8_t data_h)
+{
+     palette[num].r = (data_l & 0x1f) << 3;
+     palette[num].g = ((data_l & 0xe0) >> 3) | ((data_h & 0x3) << 6);
+     palette[num].b = ((data_h & 0x7c) << 1);
+     palette[num].a = 0xff;
 }
 
 /**
@@ -334,10 +352,10 @@ draw_pixel(uint8_t pix, int row, int col)
      rect.x = col * scale;
      rect.h = scale;
      rect.w = scale;
-     SDL_SetRenderDrawColor(render, color[pix].r,
-                                    color[pix].g,
-                                    color[pix].b,
-                                    0xff);
+     SDL_SetRenderDrawColor(render, palette[pix].r,
+                                    palette[pix].g,
+                                    palette[pix].b,
+                                    palette[pix].a);
      SDL_RenderFillRect(render, &rect);
 //     disp[row][col] = pix;
 }
@@ -542,7 +560,7 @@ run_sim()
        audio_pos = 0;
        while(cpu->get_cycles() < CYCLES_PER_SCREEN) {
           cpu->step();
-          if (trace_flag) {
+          if (trace_flag && !cpu->halted) {
               cpu->trace();
           }
        }

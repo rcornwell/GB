@@ -240,6 +240,7 @@ public:
  * RAM is a bank of memory. It is allocated based on the size given.
  */
 class RAM : public Area {
+     uint16_t    _bank;        /**< Ram bank */
 
 public:
      /**
@@ -252,8 +253,9 @@ public:
       */
      explicit RAM(size_t size) {
          _data = new uint8_t[size];
-         _mask = size - 1;      /* Size must be power of 2 for this to work */
-         _size = size >> 8;
+         _mask = 0x0fff;
+         _size = 32;
+         _bank = 0x1000;
      }
 
      /**
@@ -262,6 +264,50 @@ public:
       * Free memory created.
       */
      ~RAM() { delete[] _data; }
+
+     /**
+      * @brief Set bank value.
+      *
+      * Sets the value of the upper bank. Bank 0 maps to bank 1.
+      *
+      * @param bank New bank number.
+      */
+     void set_bank(uint8_t bank) {
+          if (bank == 0) {
+              bank = 1;
+          }
+          _bank = ((uint16_t)(bank & 7)) << 12;
+     }
+
+     /**
+      * @brief Routine to read from memory.
+      *
+      * Return the value based on the mask to select range of access..
+      * @param[out] data Data read from memory.
+      * @param[in] addr Address of memory to read.
+      */
+     virtual void read(uint8_t &data, uint16_t addr) const override {
+         if (addr & 0x1000) {
+             data = _data[(addr & _mask) | _bank];
+         }  else {
+             data = _data[addr & _mask];
+         }
+     }
+
+     /**
+      * @brief Routine to write to memory.
+      *
+      * Set memory at address to data, based on mask.
+      * @param[in] data Data to write to memory.
+      * @param[in] addr Address of memory to write.
+      */
+     virtual void write(uint8_t data, uint16_t addr) override {
+         if (addr & 0x1000) {
+             _data[(addr & _mask) | _bank] = data;
+         } else {
+             _data[addr & _mask] = data;
+         }
+     }
 
      /**
       * @brief Return bus number of slice.
@@ -280,6 +326,7 @@ public:
      virtual int bus() const override { return 0; }
 };
 
+
 /**
  * @brief Object that represents all Memory for Game Boy.
  *
@@ -296,20 +343,29 @@ public:
  * memory.
  */
 class Memory {
-     Slice     *_mem[256];   /**< Slices of memory */
-     Empty      _empty;      /**< Empty space for default memory access */
-     bool       _dma_flag;   /**< DMA in operation. */
-     uint16_t   _dma_addr;   /**< Current DMA address pointer. */
-     int        _dma_count;  /**< Count of current DMA cycle */
-     int        _dma_bus;    /**< Current DMA bus */
-     uint8_t    _dma_data;
-     Timer     *_timer;      /**< Pointer to Timer object */
-     Ppu       *_ppu;        /**< Pointer to PPU object */
-     Apu       *_apu;        /**< Pointer to APU object */
-     Serial    *_serial;     /**< Pointer to Serial datalink object */
-     uint64_t   _cycles;     /**< Number of cycles executed. */
+     Slice     *_mem[256];    /**< Slices of memory */
+     Empty      _empty;       /**< Empty space for default memory access */
+     bool       _dma_flag;    /**< DMA in operation. */
+     uint16_t   _dma_addr;    /**< Current DMA address pointer. */
+     int        _dma_count;   /**< Count of current DMA cycle */
+     int        _dma_bus;     /**< Current DMA bus */
+     Timer     *_timer;       /**< Pointer to Timer object */
+     Ppu       *_ppu;         /**< Pointer to PPU object */
+     Apu       *_apu;         /**< Pointer to APU object */
+     Serial    *_serial;      /**< Pointer to Serial datalink object */
+     uint64_t   _cycles;      /**< Number of cycles executed. */
+     bool       _color;       /**< Color device */
+     bool       _disable_rom; /**< Boot ROM disabled */
+     bool       _speed;       /**< Running in double speed mode */
+     int        _step;        /**< Cycle step */
 
 public:
+     uint16_t   hdma_src;     /**< Source of HDMA transfer */
+     uint16_t   hdma_dst;     /**< Destination for HDMA transfer */
+     uint8_t    hdma_cnt;     /**< Count of HDMA transfer */
+     bool       hdma_en;      /**< Enable HDMA transfer */
+     bool       dis_hdma;     /**< HDMA is disabled */
+
      /**
       * @brief Create default Memory object.
       *
@@ -317,9 +373,11 @@ public:
       * @param ppu  Ppu Object used to update graphics screen.
       * @param apu  Apu Object used to update sound generation.
       * @param serial Serial Object used to clock out data.
+      * @param color True if emulating Color Game Boy.
       */
-     Memory(Timer *timer, Ppu *ppu, Apu *apu, Serial *serial) :
-            _dma_flag(false), _timer(timer), _ppu(ppu), _apu(apu), _serial(serial), _cycles(0) {
+     Memory(Timer *timer, Ppu *ppu, Apu *apu, Serial *serial, bool color) :
+            _dma_flag(false), _timer(timer), _ppu(ppu), _apu(apu),
+            _serial(serial), _cycles(0), _color(color), _disable_rom(false) {
          /* Map all of memory to empty regions. */
          for (int i = 0; i < 256; i++) {
              _mem[i] = &_empty;
@@ -328,15 +386,60 @@ public:
          _dma_addr = 0;
          _dma_count = 0;
          _dma_bus = 2;
-         _dma_data = 0xff;
+         _speed = false;
+         _step = true;
+         hdma_src = 0;
+         hdma_dst = 0x8000;
+         hdma_cnt = 0x7f;
+         hdma_en = false;
+         dis_hdma = !color;
      }
 
      /**
-      * @brief Perform cycle update at end of cycle.
+      * @brief Perform cycle update at points in the cycle.
       *
       * Update all devices that need a clock per cycle.
       */
      void cycle();
+
+     /**
+      * @brief Preform a HDMA line transfer.
+      *
+      * Transfer 16 bytes of memory from hdma_src to hdma_dst.
+      */
+     void hdma_cycle();
+
+     /**
+      * @brief Get Speed flag.
+      *
+      * @return true if Double speed mode.
+      */
+     bool get_speed() {
+          return _speed;
+     }
+
+     /**
+      * @brief Switch speed.
+      */
+     void switch_speed();
+
+     /**
+      * @brief Get ROM disabled flag.
+      *
+      * @return ROM disabled flag.
+      */
+     bool get_disable() {
+          return _disable_rom;
+     }
+
+     /**
+      * @brief Set ROM disable flag.
+      *
+      * @param data Value of disable register.
+      */
+     void set_disable(uint8_t data) {
+          _disable_rom = (data & 1);
+     }
 
      /**
       * @brief Read memory.
@@ -460,3 +563,4 @@ public:
          _cycles = _cycles - max_cycles;
      }
 };
+

@@ -44,6 +44,8 @@ class Timer : public Device {
      Apu        *_apu;              /**< Apu since timer needs to
                                          be able to give clocks to
                                          the APU */
+     bool        _speed;            /**< Running at double speed */
+     uint16_t    _apu_mask;         /**< Mask for APU bit to monitor */
 
      /**< Mask indicating bits that cause interrupt */
      const uint16_t t_mask[4] = {
@@ -55,6 +57,8 @@ public:
         _tima = _tma = _tac = 0;
         _time_over = false;
         _div = 8;
+        _speed = false;
+        _apu_mask = 0x1000;
      }
 
      /**
@@ -85,6 +89,16 @@ public:
      }
 
      /**
+      * @brief Set speed.
+      *
+      * @param speed New speed.
+      */
+     void set_speed(bool speed) {
+         _apu_mask = (speed) ? 0x2000 : 0x1000;
+         _speed = speed;
+     }
+
+     /**
       * @brief Cycle timer.
       *
       * Called once per cycle by Memory controller.
@@ -93,7 +107,7 @@ public:
       */
      virtual void cycle() override {
           uint16_t  prev     = !!(_div & t_mask[_tac&3]);
-          uint16_t  prev_snd = !!(_div & 0x1000);
+          uint16_t  prev_snd = !!(_div & _apu_mask);
 
           _div += 4;
           _time_over = false;
@@ -113,7 +127,7 @@ public:
              }
           }
           /* Update sound state 512 times per second */
-          if (_apu != NULL && prev_snd != 0 && (_div & 0x1000) == 0) {
+          if (_apu != NULL && prev_snd != 0 && (_div & _apu_mask) == 0) {
               _apu->cycle_sound();
           }
      }

@@ -115,7 +115,75 @@ void OAM::scan_oam(int row, uint8_t lcdc)
          _objs[obj_num].Y = _data[obj+TY];
          _objs[obj_num].flags = _data[obj+TF];
          _objs[obj_num].tile = _data[obj+TT];
+         _objs[obj_num].num = obj;
      }
+}
+
+/**
+ * @brief Read Palette control registers.
+ *
+ * Read control registers.
+ *
+ * @param[out] data Data read from register.
+ * @param[in]  addr Register to read.
+ */
+void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
+    switch (addr & 0x3) {
+    case 0:    /* Background color control register */
+            data = _bg_ctrl;
+            break;
+
+    case 1:    /* Read background palette at value */
+            data = _palette[_bg_ctrl & 0x3f];
+            break;
+
+    case 2:    /* Object color control register */
+            data = _obj_ctrl;
+            break;
+
+    case 3:    /* Read Object palette at value */
+            data = _palette[(_obj_ctrl & 0x3f) | 0x40];
+            break;
+    }
+}
+
+/**
+ * @brief Write Palette control registers.
+ *
+ * Write control registers.
+ *
+ * @param[out] data Data write to register.
+ * @param[in]  addr Register to write.
+ */
+void ColorPalette::write_reg(uint8_t data, uint16_t addr) {
+    int     num;
+    switch (addr & 0x3) {
+    case 0:    /* Background color control register */
+            _bg_ctrl = data;
+            break;
+
+    case 1:    /* Write background palette at value */
+            num = _bg_ctrl & 0x3f;
+            _palette[num] = data;
+            set_palette_col((num >> 1), _palette[num & 0x7e], _palette[num | 1]);
+            if (_bg_ctrl & 0x80) {
+                _bg_ctrl = (_bg_ctrl & 0xc0) | ((num + 1) & 0x3f);
+            }
+            break;
+
+    case 2:    /* Object color control register */
+            _obj_ctrl = data;
+            break;
+
+    case 3:    /* Write Object palette at value */
+            num = (_obj_ctrl & 0x3f) | 0x40;
+            _palette[num] = data;
+            set_palette_col((num >> 1), _palette[num & 0x7e], _palette[num | 1]);
+            if (_obj_ctrl & 0x80) {
+                _obj_ctrl = (_obj_ctrl & 0xc0) | ((num + 1) & 0x3f);
+            }
+            break;
+    }
 }
 
 /**
@@ -184,15 +252,14 @@ static bool _first_line;
  * @brief Process a single cycle of pixel engine.
  *
  * Depending on state choose how long to wait to switch to next one.
- * Every time we are called we will process 4 pixels.
  *
  * If we are in HBlank wait until 456 pixels have been processes.
  */
-void Ppu::cycle() {
+void Ppu::dot_cycle() {
     if ((LCDC & LCDC_ENABLE) == 0) {
         return;
     } else {
-         check_lyc();
+        check_lyc();
         if (starting != 0) {
             starting--;
             return;
@@ -202,6 +269,7 @@ void Ppu::cycle() {
 
 //if (trace_flag) printf("Mode %d LY %d LX %d C %4d %d %d\n", _mode, LY, LX, cycle_cnt, _dot_clock, _dot_clock / 4);
     cycle_cnt++;
+    _dot_clock++;
     switch(_mode) {
     case 0:   /* HBlank */
               /* If starting new cycle set things up */
@@ -209,8 +277,13 @@ void Ppu::cycle() {
                   _start = false;
                   /* Activate memory objects that were blocked */
                   if (_mem) {
-                      _mem->add_slice(&_data, 0x8000);
-                      _mem->add_slice(&_map, 0x9800);
+                      if (_vbank) {
+                          _mem->add_slice(&_data1, 0x8000);
+                          _mem->add_slice(&_map1, 0x9800);
+                      } else {
+                          _mem->add_slice(&_data0, 0x8000);
+                          _mem->add_slice(&_map0, 0x9800);
+                      }
                       _mem->add_slice(&_oam, 0xfe00);
                   }
                   /* If window is being displayed, update to next row */
@@ -220,6 +293,10 @@ void Ppu::cycle() {
                           _wrow++;
                           _wline = 0;
                       }
+                  }
+                  /* Tell memory to do HDMA transfer */
+                  if (_color) {
+                      _mem->hdma_cycle();
                   }
               }
               /* Wait until 456 dot times have passed */
@@ -234,8 +311,7 @@ void Ppu::cycle() {
                      _start = true;
                      _first_line = false;
                   }
-              _dot_clock +=4;
-              LX+=4;
+              LX++;
               if (_dot_clock == 444) {
                   LY++;
                   if (LY < 144) {
@@ -296,7 +372,6 @@ void Ppu::cycle() {
                   draw_screen();
               }
               /* Wait until line finished */
-              _dot_clock += 4;
               if (_dot_clock == 444) {
                   LY++;
 //                  /* Process line counter interrupt */
@@ -337,7 +412,6 @@ void Ppu::cycle() {
                   /* Scan OAM for 10 objects */
                   _oam.scan_oam(LY+16, LCDC);
               }
-              _dot_clock += 4;
               /* Wait until 80 pixels have gone by */
               if (_dot_clock == 80) {
                   _mode = 3;
@@ -357,12 +431,8 @@ void Ppu::cycle() {
                   LX = 0;
                   /* Initialize the display system */
                   display_start();
-                  _dot_clock += 4;
               } else {
-                  /* Process 4 pixels */
-                  display_pixel();
-                  display_pixel();
-                  display_pixel();
+                  /* Process 1 pixel */
                   display_pixel();
               }
               /* When we hit end, go to HBlank time */
@@ -383,16 +453,24 @@ void Ppu::cycle() {
  * to the last pixel loaded.
  *
  * @param tile  Pointer to tile to display, including selection of map.
- * @param st_pix Starting pixel to insertion at.
  * @param row   Current tile row to display.
  */
-void Ppu::fill_pix(int tile, int st_pix, int row) {
+void Ppu::fill_pix(int tile, int row) {
     uint8_t  data;
     int      ptr;
     int      i;
+    uint8_t  attr = 0;
+    bool     flip = false;
+    int      pal = 0;
 
     /* Load tile map data */
-    data = _map._data[tile];
+    data = _map0._data[tile];
+    if ((_ppu_mode & 0xc) == 0) {
+        attr = _map1._data[tile];
+        pal = (attr & 7) << 2;
+        pal |= (attr & 0x80);
+        flip = (attr & 0x20) != 0;
+    }
     /* Compute index of data */
     if ((LCDC & TILE_AREA) != 0) {
         ptr = (int)data;
@@ -401,13 +479,24 @@ void Ppu::fill_pix(int tile, int st_pix, int row) {
     }
     /* Multiply by 8 and add in row */
     ptr <<= 3;
-    ptr += row;
-//if (trace_flag) printf("BG %02x %d\n", tile, row);
+    if ((attr & 0x40) != 0) {
+        ptr += (row ^ 7);
+    } else {
+        ptr += row;
+    }
+//if (trace_flag) printf("BG %02x %d %02x:", tile, row, data);
     /* Copy row in place */
     for (i = 0; i < 8; i++) {
-         _pix_count = st_pix + i;
-         _pix_fifo[_pix_count] = _data._tile[ptr][i];
+         int    p = (flip)?(7 - i) : i;
+         if ((attr & 0x8) != 0) {
+             _pix_fifo[i] = _data1._tile[ptr][p] | pal;
+         } else {
+             _pix_fifo[i] = _data0._tile[ptr][p] | pal;
+         }
+//if (trace_flag) printf(" %02x", _pix_fifo[i]);
     }
+    _pix_count = 7;
+//if (trace_flag) printf("\n");
 }
 
 /**
@@ -452,7 +541,11 @@ void Ppu::display_start() {
 
    _obj_num = 0;
    /* Check if window can be displayed */
-   _wind_en = (LCDC & (WIND_ENABLE|BG_PRIO)) == (WIND_ENABLE|BG_PRIO);
+   if ((_ppu_mode & 0xc) != 0) {
+       _wind_en = (LCDC & (WIND_ENABLE|BG_PRIO)) == (WIND_ENABLE|BG_PRIO);
+   } else {
+       _wind_en = (LCDC & (WIND_ENABLE)) != 0;
+   }
    _wind_flg = false;
    /* Check if on valid line */
    if (_wind_en && (LY < WY)) {
@@ -469,18 +562,16 @@ void Ppu::display_start() {
    _brow &= 0x7;
    LX = SCX & 0x7;
    /* Clear fifos */
-   for (i = 0; i < 16; i++) {
-       _pix_fifo[i] = 0;
-   }
    for (i = 0; i < 8; i++) {
+       _pix_fifo[i] = 0;
        _obj_fifo[i] = 0;
    }
    _pix_count = 0;
 
 //if (trace_flag) printf("Startline LY %d SCY %d LX %d SCX %d t=%04x\n", LY, SCY, LX, SCX, _btile);
    /* If displaying load first tile */
-   if (LCDC & BG_PRIO) {
-       fill_pix(_btile, 0, _brow);
+   if ((LCDC & BG_PRIO) != 0 || (_ppu_mode & 0xc) == 0) {
+       fill_pix(_btile, _brow);
        _btile = (_btile & 0x7e0) | ((_btile+1) & 0x1f);
    }
 
@@ -512,7 +603,6 @@ void Ppu::display_start() {
  */
 void Ppu::display_pixel() {
 
-    _dot_clock++;
     /* Check if into HBlank */
     if (LX >= 168) {
         _mode = 0;
@@ -548,7 +638,7 @@ void Ppu::display_pixel() {
            if (_f_state != RDY) {
                return;
            }
-           fill_pix(_wtile, 0, _wline);
+           fill_pix(_wtile, _wline);
            _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
         } else {
            /* Else if background, grab from background space */
@@ -562,8 +652,8 @@ void Ppu::display_pixel() {
            if (_f_state != RDY) {
                return;
            }
-           if (LCDC & BG_PRIO) {
-               fill_pix(_btile, 0, _brow);
+           if ((LCDC & BG_PRIO) != 0 || (_ppu_mode & 0xc) == 0) {
+               fill_pix(_btile, _brow);
                _btile = (_btile & 0x7e0) | ((_btile+1) & 0x1f);
            }
         }
@@ -586,7 +676,7 @@ void Ppu::display_pixel() {
         }
         /* Set for display of Window and load Window into front of Fifo */
         _wind_flg = true;
-        fill_pix(_wtile, 0, _wline);
+        fill_pix(_wtile, _wline);
         _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
         /* Reschedule to grab next Window */
         _f_state = GETA;
@@ -611,26 +701,50 @@ void Ppu::display_pixel() {
         int        mask = (LCDC & OBJ_SIZE) ? 0x7f0: 0x7f8; /* Mask for hieght */
         uint8_t    tile = _oam._objs[_obj_num].tile;
         uint16_t   row = ((uint16_t)tile << 3) & mask;
+        uint8_t    flags = _oam._objs[_obj_num].flags;
+        bool       overwrite = false;
 
         /* Set base palette and priority and whether fliped */
-        uint8_t    base = ((_oam._objs[_obj_num].flags & OAM_PAL) ? 0x8:0x4) |
-                          ((_oam._objs[_obj_num].flags & OAM_BG_PRI) ? 0x10:0x0);
-        bool       flip = (_oam._objs[_obj_num].flags & OAM_X_FLIP) != 0;
+        uint8_t    base = ((flags & OAM_PAL) ? 0x8:0x4) |
+                          ((flags & OAM_BG_PRI) ? 0x80:0x0);
+        bool       flip = (flags & OAM_X_FLIP) != 0;
+
+        /* For color, update palette selection */
+        if ((_ppu_mode & 0xc) == 0) {
+            base = ((flags & OAM_CPAL) << 2) | 0x20;
+        } else {
+            flags &= ~OAM_BANK;
+        }
+
+        if (_obj_pri == 0) {
+           overwrite = true;
+        } else if (_obj_num > 1 && _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num) {
+           overwrite = true;
+        }
+
+//        if (_obj_pri == 0 && _obj_num > 1 &&
+ //                _oam._objs[_obj_num-1].num > _oam._objs[_obj_num].num) {
+ //           overwrite = true;
+  //      }
         /* Compute row to show */
         int y = (LY + 16) - _oam._objs[_obj_num].Y;
-        if ((_oam._objs[_obj_num].flags & OAM_Y_FLIP) != 0) {
+        if ((flags & OAM_Y_FLIP) != 0) {
             int        high = (LCDC & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
             y = high - y - 1;
         }
         row += y;
-//if (trace_flag) printf("Obj %02x %d %04x %04x ", tile, y, row, mask);
+//if (trace_flag) printf("Obj %02x %d %04x %04x %d\n", tile, y, row, mask, _oam._objs[_obj_num].num);
 
         /* Load object into obj fifo. */
         for (int i = 0; i < 8; i++) {
             int    p = (flip)?(7 - i) : i;
             /* Only update if pixel is transparent */
-            if ((_obj_fifo[i] & 3) == 0) {
-                _obj_fifo[i] = _data._tile[row][p] | base;
+            if ((_obj_fifo[i] & 3) == 0 || overwrite) {
+                if ((flags & OAM_BANK) != 0) {
+                    _obj_fifo[i] = _data1._tile[row][p] | base;
+                } else {
+                    _obj_fifo[i] = _data0._tile[row][p] | base;
+                }
             }
         }
         _obj_num++;
@@ -641,24 +755,51 @@ void Ppu::display_pixel() {
 
     /* Display next pixel */
     if (LX >= 8) {
-        uint8_t pix;
+        uint8_t   opix = _obj_fifo[0];
+        uint8_t   pix = _pix_fifo[0];
 
         /* Start with pixel fifo */
-        pix = ((LCDC & BG_PRIO) == 0) ? 0 : _pix_fifo[0];
-        /* If object are enabled see if Object will override */
-        if ((LCDC & OBJ_ENABLE) != 0) {
-            /* background has priority, overwrite if transparent background */
-            if ((_obj_fifo[0] & 0x10) != 0) {
-               if ((pix & 0x3) == 0) {
-                   pix = _obj_fifo[0] & 0xf;
-               }
-            } else {
-               /* Object has priority, overwrite if not transparent */
-               if ((_obj_fifo[0] & 3) != 0) {
-                   pix = _obj_fifo[0] & 0xf;
-               }
+        if ((_ppu_mode & 0xc) == 0) {
+            /* If object are enabled see if Object will override */
+            if ((LCDC & OBJ_ENABLE) != 0) {
+                 /* If background has priority, only override if object */
+                 if ((LCDC & BG_PRIO) == 0) {
+                     if ((opix & 3) != 0) {
+                        pix = opix;
+                     }
+                 } else {
+                     /* Otherwise if both Pix priority and OAM use object */
+                     if ((pix & 0x80) != 0 || (opix & 0x80) != 0) {
+                         if ((pix & 3) == 0) {
+                            pix = opix;
+                         }
+                     } else {
+                         if ((opix & 3) != 0) {
+                             pix = opix;
+                         }
+                     }
+                 }
+            }
+        } else {
+            if ((LCDC & BG_PRIO) == 0) {
+               pix = 0;
+            }
+            /* If object are enabled see if Object will override */
+            if ((LCDC & OBJ_ENABLE) != 0) {
+                /* background has priority, overwrite if transparent background */
+                if ((opix & 0x80) != 0) {
+                   if ((pix & 0x3) == 0) {
+                       pix = opix;
+                   }
+                } else {
+                   /* Object has priority, overwrite if not transparent */
+                   if ((opix & 3) != 0) {
+                       pix = opix;
+                   }
+                }
             }
         }
+        pix &= 0x3f;
         /* Display pixel */
         draw_pixel(pix, LY, LX-8);
     }
@@ -666,6 +807,45 @@ void Ppu::display_pixel() {
     shift_fifo();
 
     LX++;
+}
+
+/**
+ * @brief Set Video Bank.
+ *
+ * @param data value to set.
+ */
+void Ppu::set_vbank(uint8_t data) {
+     if ((_ppu_mode & 0xC) == 0) {
+         _vbank = (int)(data & 1);
+         if (_mem && _mode != 3) {
+             if (_vbank) {
+                 _mem->add_slice(&_data1, 0x8000);
+                 _mem->add_slice(&_map1, 0x9800);
+             } else {
+                 _mem->add_slice(&_data0, 0x8000);
+                 _mem->add_slice(&_map0, 0x9800);
+             }
+         }
+     }
+}
+
+/**
+ * @brief Set Video Mode.
+ *
+ * Bit 0 - Unknown.
+ * Bit 2 - Disable RP(IR), VBK, SVBK, FF6C
+ * Bit 3 - Disable HDMA, BGPD, OBPD, and KEY1.
+ *
+ * @param data value to set.
+ */
+void Ppu::set_ppu_mode(uint8_t data) {
+     if (!_mem->get_disable()) {
+         _ppu_mode = data;
+         if ((_ppu_mode & 0x8) != 0) {
+            _mem->add_slice(&_data0, 0x8000);
+            _mem->add_slice(&_map0, 0x9800);
+         }
+     }
 }
 
 /**
@@ -731,8 +911,13 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                        cycle_cnt = 0;
                    } else {
                        if (_mem) {
-                           _mem->add_slice(&_data, 0x8000);
-                           _mem->add_slice(&_map, 0x9800);
+                           if (_vbank) {
+                               _mem->add_slice(&_data1, 0x8000);
+                               _mem->add_slice(&_map1, 0x9800);
+                           } else {
+                               _mem->add_slice(&_data0, 0x8000);
+                               _mem->add_slice(&_map0, 0x9800);
+                           }
                            _mem->add_slice(&_oam, 0xfe00);
                        }
                        _mode = 0;
@@ -743,7 +928,6 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                    }
                }
                LCDC = data;
-//printf("Write LCDC %02x\n", LCDC);
                break;
      case 0x1: STAT = (data & 0x78) | (STAT & STAT_LYC_F);    /* ff41 */
                break;
@@ -756,13 +940,19 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                }
                break;                   /* ff46 DMA */
      case 0x7: BGP = data;              /* ff47 */
-               set_palette(0, data);
+               if ((_ppu_mode & 0xc) != 0) {
+                   set_palette(0, data);
+               }
                break;
      case 0x8: OBP0 = data;             /* ff48 */
-               set_palette(4, data);
+               if ((_ppu_mode & 0xc) != 0) {
+                   set_palette(4, data);
+               }
                break;
      case 0x9: OBP1 = data;             /* ff49 */
-               set_palette(8, data);
+               if ((_ppu_mode & 0xc) != 0) {
+                   set_palette(8, data);
+               }
                break;
      case 0xa: WY = data; break;       /* ff4a */
      case 0xb: WX = data; break;       /* ff4b */

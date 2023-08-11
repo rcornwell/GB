@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdint.h>
 #include "Memory.h"
+#include "CGB_Dev.h"
 #include "IO.h"
 #include "Cartridge.h"
 #include "Joypad.h"
@@ -85,12 +86,19 @@ public:
      * I/O device is given pointers to the interrupt variables. The
      * I/O object will pass this on to the devices.
      */
-    explicit Cpu(Cartridge *_cart) : cart(_cart)
+    explicit Cpu(Cartridge *_cart, bool _color) : cart(_cart), color(_color)
     {
         /* Create memory and ram objects */
-        mem = new Memory(&timer, &ppu, &apu, &ser);
-        ram = new RAM(8192);
-        io = new IO_Space(&irq_en, &irq_flg);
+        ppu = new Ppu(color);
+        mem = new Memory(&timer, ppu, &apu, &ser, color);
+        ram = new RAM(color ? 32768 : 8192);
+        io  = new IO_Space(&irq_en, &irq_flg);
+        cpal = NULL;
+        svbk = NULL;
+        key  = NULL;
+        vbk  = NULL;
+        opri = NULL;
+        hdma = NULL;
         /* These need to be added first since 0xe000 overlaps I/O and video space */
         mem->add_slice(ram, 0xc000);
         mem->add_slice(ram, 0xe000);
@@ -100,16 +108,32 @@ public:
         cart->set_mem(mem);
         cart_dev.set_cart(cart);
         /* PPU needs to manage memory */
-        ppu.set_mem(mem);
+        ppu->set_mem(mem);
         /* System needs to know about joypad to send button presses to it. */
         set_joypad(&joy);
         /* Add in devices */
         io->add_device(&timer);
-        io->add_device(&ppu);
+        io->add_device(ppu);
         io->add_device(&joy);
         io->add_device(&apu);
         io->add_device(&ser);
         io->add_device(&cart_dev);
+        /* Add in devices specific to Color Game Boy */
+        if (color) {
+           cpal = new ColorPalette();
+           svbk = new SVBK(ram);
+           key  = new KEY(ppu, mem);
+           vbk  = new VBK(ppu);
+           opri = new OPRI(ppu);
+           hdma = new HDMA(mem);
+           io->add_device(cpal);
+           io->add_device(svbk);
+           io->add_device(key);
+           io->add_device(vbk);
+           io->add_device(opri);
+           io->add_device(hdma);
+        }
+
         /* Timer needs to send events to APU */
         timer.set_apu(&apu);
 
@@ -120,6 +144,7 @@ public:
         ime = false;
         ime_hold = false;
         halted = false;
+        stopped = false;
         irq_en = 0x00;
         irq_flg = 0x00;
         for (int i = 0; i < 8; i++) {
@@ -136,7 +161,16 @@ public:
         delete io;
         delete ram;
         delete mem;
+        delete ppu;
+        delete cpal;
+        delete svbk;
+        delete key;
+        delete vbk;
+        delete hdma;
     }
+
+    Cartridge  *cart;    /**< Cartridge with game */
+    bool      color;     /**< Game Boy is color */
 
     uint8_t   regs[8];   /**< Cpu registers B,C,D,E,H,L,M,A */
     uint8_t   F;         /**< Cpu flags */
@@ -150,15 +184,21 @@ public:
     uint8_t   irq_en;    /**< Interrupt enable register */
     uint8_t   irq_flg;   /**< Interrupt flags register */
     bool      halted;    /**< Cpu is halted and waiting for interrupt */
+    bool      stopped;   /**< Cpu is stops waiting for speed change/button */
     bool      running;   /**< Cpu is running */
 
-    Cartridge  *cart;    /**< Cartridge with game */
     Cartridge_Device cart_dev; /**< Cartridge device, disable ROM */
+    SVBK      *svbk;     /**< RAM Bank select register */
+    VBK       *vbk;      /**< Pointer to video bank switch register */
+    KEY       *key;      /**< Pointer to Key device */
+    OPRI      *opri;     /**< Pointer to Object Priority device */
+    HDMA      *hdma;     /**< Pointer to Hblank DMA device */
     Memory    *mem;      /**< Memory object */
     RAM       *ram;      /**< Working RAM */
     IO_Space  *io;       /**< I/O Space */
     Timer     timer;     /**< Timer device */
-    Ppu       ppu;       /**< Graphics processing unit */
+    Ppu       *ppu;      /**< Graphics processing unit */
+    ColorPalette *cpal;  /**< Color palette */
     Apu       apu;       /**< Audio processing unit */
     Joypad    joy;       /**< Game pad buttons */
     Serial    ser;       /**< Serial data link controller */
@@ -237,7 +277,7 @@ public:
      * @return Value of register pair.
      */
     template <reg_pair RP>
-    inline uint16_t regpair()
+    constexpr inline uint16_t regpair()
     {
         uint16_t t;
         if constexpr (RP == BC) {
@@ -443,7 +483,6 @@ private:
 #define LDD(name)    template <int o>void op_##name();
 #define IMM(name)    OPR(name)
 #define SHF(name)    template <reg_name R>void op_##name();
-#define OP2(name)    OPR(name)
 #define STK(name)    template<reg_pair RP>void op_##name();
 #define ROPR(name)   void op_##name(uint8_t v);
 #define XOPR(name)   ROPR(name) \
@@ -481,7 +520,6 @@ private:
 #undef LDD
 #undef IMM
 #undef SHF
-#undef OP2
 #undef STK
 #undef RST
 #undef REG

@@ -30,11 +30,11 @@ project(${PROJECT_NAME} VERSION 0.0.0 DESCRIPTION "Game Boy Simulator")
 
 ## Set version number 
 set (${PROJECT_NAME}_VERSION_MAJOR 0)
-set (${PROJECT_NAME}_VERSION_MINOR 0)
+set (${PROJECT_NAME}_VERSION_MINOR 1)
 
 # Generate Doxygen documentation files
 option(BUILD_DOC "Build documenation" OFF)
-option(RUN_TESTS "Run tests" OFF)
+option(RUN_TESTS "Run tests" ON)
 
 # Add a custom CMake Modules directory
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)

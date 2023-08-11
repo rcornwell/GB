@@ -78,8 +78,8 @@ class Cartridge_MBC5 : public Cartridge_ROM {
     Cartridge_MBC5_bank  *_rom_bank;
     uint32_t              _bank;       /**< Local copy of bank number */
 public:
-    Cartridge_MBC5(Memory *mem, uint8_t *data, size_t size) :
-       Cartridge_ROM(mem, data, size) {
+    Cartridge_MBC5(Memory *mem, uint8_t *data, size_t size, bool color) :
+       Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_MBC5_bank(data, size);
         _bank = 0;
        std::cout << "MBC5 Cartridge " << (int)size << " " << std::endl;
@@ -117,9 +117,7 @@ public:
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);
         _mem->add_slice_sz(&_empty, 0xa000, 32);
-        if (_rom_enable) {
-            _mem->add_slice(&_rom, 0);
-        }
+        disable_rom(_rom_disable);
     }
 
     /**

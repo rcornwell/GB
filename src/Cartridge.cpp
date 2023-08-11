@@ -185,7 +185,7 @@ void Cartridge::set_rom(uint8_t *data, size_t size) {
 void Cartridge::set_mem(Memory *mem) {
      _mem = mem;
      if (_data[0x147] > (sizeof(rom_type)/sizeof(int))) {
-         _rom = new Cartridge_ROM(_mem, _data, _size);
+         _rom = new Cartridge_ROM(_mem, _data, _size, _color);
      } else {
          int  type = rom_type[_data[0x147]];
 
@@ -197,24 +197,24 @@ void Cartridge::set_mem(Memory *mem) {
          }
          switch (type & 0xf) {
          case ROM:
-              _rom = new Cartridge_ROM(_mem, _data, _size);
+              _rom = new Cartridge_ROM(_mem, _data, _size, _color);
               break;
          case MBC1:
-              _rom = new Cartridge_MBC1(_mem, _data, _size);
+              _rom = new Cartridge_MBC1(_mem, _data, _size, _color);
               break;
          case MBC2:
-              _rom = new Cartridge_MBC2(_mem, _data, _size);
+              _rom = new Cartridge_MBC2(_mem, _data, _size, _color);
               _ram = new Cartridge_MBC2_RAM(512);
               _rom->set_ram(_ram);
               break;
          case MBC3:
-              _rom = new Cartridge_MBC3(_mem, _data, _size);
+              _rom = new Cartridge_MBC3(_mem, _data, _size, _color);
               break;
          case MBC5:
-              _rom = new Cartridge_MBC5(_mem, _data, _size);
+              _rom = new Cartridge_MBC5(_mem, _data, _size, _color);
               break;
          case MMM01:
-              _rom = new Cartridge_MMM01(_mem, _data, _size);
+              _rom = new Cartridge_MMM01(_mem, _data, _size, _color);
               break;
         }
         if (type & CRAM && _ram == NULL) {

@@ -80,7 +80,24 @@
  *     0x49  | OBP1   | ^                     |
  *     0x4A  | WX     | ^                     |
  *     0x4B  | WY     | ^                     |
+ *     0x4C  | KEY0   | Set emulation type    |
+ *     0x4D  | KEY1   | Set Speed             |
+ *     0x4F  | VBK    | VRAM Bank             |
  *     0x50  | (W)    |Disable ROM            |
+ *     0x51  | HDMA1  | High DMA source       |
+ *     0x52  | HDMA2  | Low DMA source        |
+ *     0x53  | HDMA3  | High DMA destination  |
+ *     0x54  | HDMA4  | Low DMA destination   |
+ *     0x55  | HDMA5  | DMA lenght/mode       |
+ *     0x56  | IR     | Infrared link         |
+ *     0x68  | BCPS   | Background color      |
+ *     0x69  | BCPD   | Background data       |
+ *     0x6a  | OCPS   | Object color          |
+ *     0x6b  | OCPD   | Object data           |
+ *     0x6c  | OPRI   | Object priority mode  |
+ *     0x70  | SVBK   | WRAM bank             |
+ *     0x76  | PCM12  | PCM Audio output 1&2  |
+ *     0x77  | PCM34  | PCM Audio output 3&4  |
  *     0x7F-0xFE|     | Internal RAM.         |
  *     0xFF  | IE     | Interrupt enable      |
  *
@@ -157,7 +174,19 @@ public:
          for (int i = 0; i < sz; i++) {
              _devs[base+i] = dev;
          }
-      }
+     }
+
+     /**
+      * @brief Free a device at a given address.
+      *
+      * Turns a pointer to a device back to an empty device. This is used
+      * on Color Game Boy to switch back to original mode.
+      *
+      * @param dev Device to remove
+      */
+     void free_device(uint8_t dev) {
+         _devs[dev] = &_empty;
+     }
 
      /**
       * @brief Read from devices.

@@ -34,26 +34,83 @@
 #include "Apu.h"
 #include "Serial.h"
 
+void Memory::switch_speed() {
+     _speed = !_speed;
+     _timer->set_speed(_speed);
+}
+
 void Memory::idle() {
      _cycles++;
 }
 
+void Memory::hdma_cycle() {
+     if (hdma_en) {
+         bool sav_speed = _speed;
+         _speed = true;
+//  printf("HDMA transfer from %02x %04x -> %04x\n", hdma_cnt, hdma_src, hdma_dst | 0x8000);
+         for (int i = 0; i < 16; i++) {
+             uint8_t dma_data;
+             cycle();
+             _mem[(hdma_src >> 8) & 0xff]->read(dma_data, hdma_src);
+             _mem[((hdma_dst >> 8) & 0x1f) | 0x80]->write(dma_data, 0x8000 | hdma_dst);
+//printf("HDMA %04x -> %04x %02x\n", hdma_src, 0x8000 | hdma_dst, dma_data);
+             cycle();
+             hdma_src++;
+             hdma_dst = 0x1fff & (hdma_dst + 1);
+         }
+         hdma_cnt--;
+         hdma_cnt &= 0x7f;
+         if (hdma_cnt == 0x7f) {
+             hdma_en = false;
+         }
+         _speed = sav_speed;
+      }
+}
+
 void Memory::cycle() {
-     _cycles++;
-     _timer->cycle();
-     _serial->cycle();
-     _ppu->cycle();
-     _apu->cycle();
+     switch(_step) {
+     case 0:
+             _ppu->dot_cycle();
+             if (_speed) {
+                 _step = 1;
+                 return;
+             }
+             /* Fall through */
+     case 1:
+             _apu->cycle_early();
+             _ppu->dot_cycle();
+             if (_speed) {
+                 _timer->cycle();
+             }
+             _step = 2;
+             break;
+     case 2:
+             _ppu->dot_cycle();
+             if (_speed) {
+                 _step = 3;
+                 return;
+             }
+             /* Fall through */
+     case 3:
+             _cycles++;
+             _timer->cycle();
+             _serial->cycle();
+             _ppu->dot_cycle();
+             _apu->cycle();
+             _step = 0;
+             break;
+     }
 }
 
 void Memory::read(uint8_t &data, uint16_t addr) {
-     _apu->cycle_early();
+     cycle();
      if (_dma_flag) {
         /* If DMA in progress, wait 2 cycles before transfering */
         if (++_dma_count >= 0) {
+            uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(_dma_data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(_dma_data, _dma_count);
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
+            _mem[0xfe]->write(dma_data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
@@ -68,7 +125,7 @@ void Memory::read(uint8_t &data, uint16_t addr) {
              * it returns DMA data instead of date.
              */
             if (_mem[(addr >> 8) & 0xff]->bus() == _dma_bus) {
-                data = _dma_data;
+                data = dma_data;
                 cycle();
                 return;
             }
@@ -80,13 +137,14 @@ void Memory::read(uint8_t &data, uint16_t addr) {
 }
 
 void Memory::write(uint8_t data, uint16_t addr) {
-     _apu->cycle_early();
+     cycle();
      if (_dma_flag) {
         /* If DMA in progress, wait 2 cycles before transfering */
         if (++_dma_count >= 0) {
+            uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(_dma_data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(_dma_data, _dma_count);
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
+            _mem[0xfe]->write(dma_data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
@@ -108,14 +166,14 @@ void Memory::write(uint8_t data, uint16_t addr) {
 }
 
 void Memory::internal() {
-     _apu->cycle_early();
+     cycle();
      if (_dma_flag) {
         /* If DMA in progress, wait 2 cycles before transfering */
         if (++_dma_count >= 0) {
-            uint8_t   data;
+            uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(data, _dma_count);
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
+            _mem[0xfe]->write(dma_data, _dma_count);
 //printf("DMA Internal %04x %02x %d\n", (_dma_addr & 0xff00) | _dma_count, data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {

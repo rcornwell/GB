@@ -142,8 +142,8 @@ class Cartridge_MBC1 : public Cartridge_ROM {
     bool                  _mbc1m;       /**< Cartridge is MBC1M type */
 
 public:
-    Cartridge_MBC1(Memory *mem, uint8_t *data, size_t size) :
-       Cartridge_ROM(mem, data, size) {
+    Cartridge_MBC1(Memory *mem, uint8_t *data, size_t size, bool color) :
+       Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_MBC1_bank(data, size);
 
        /* Check if Cartridge is over 256K */
@@ -202,9 +202,7 @@ public:
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);
         _mem->add_slice_sz(&_empty, 0xa000, 32);
-        if (_rom_enable) {
-            _mem->add_slice(&_rom, 0);
-        }
+        disable_rom(_rom_disable);
     }
 
     /**

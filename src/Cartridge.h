@@ -321,13 +321,13 @@ public:
 class Cartridge_ROM : public Slice {
 protected:
     Empty            _empty;        /**< Empty object for RAM area */
-    ROM              _rom;          /**< Bootstrap ROM object */
+    ROM             *_rom;          /**< Bootstrap ROM object */
     Memory          *_mem;          /**< Pointer to Memory object */
     uint8_t         *_data;         /**< Data to return */
     size_t           _size;         /**< Size of ROM in bytes */
-    bool             _rom_enable;   /**< Boot ROM enabled */
+    bool             _rom_disable;  /**< Boot ROM is disabled */
     Cartridge_RAM   *_ram;          /**< Pointer to RAM object if any */
-
+    bool             _color;        /**< Color Game Boy Support */
 public:
     /**
      * @brief Create a ROM object.
@@ -337,11 +337,21 @@ public:
      * @param mem   Pointer to memory object so it can map pages correctly.
      * @param data  Pointer to ROM image.
      * @param size  Size of ROM image in bytes.
+     * @param color True if emulating a Color Game Boy.
      */
-    Cartridge_ROM(Memory *mem, uint8_t *data, size_t size) :
-        _mem(mem), _data(data), _size(size), _rom_enable(true),
-        _ram(NULL) {
+    Cartridge_ROM(Memory *mem, uint8_t *data, size_t size, bool color) :
+        _rom(NULL), _mem(mem), _data(data), _size(size), _rom_disable(false),
+        _ram(NULL), _color(color) {
+        _rom = new ROM(_color);
     }
+
+    ~Cartridge_ROM() {
+        delete _rom;
+    }
+
+    Cartridge_ROM(Cartridge_ROM &) = delete;
+
+    Cartridge_ROM& operator=(Cartridge_ROM &) = delete;
 
     /**
      * @brief Sets pointer to RAM object.
@@ -361,9 +371,7 @@ public:
         if (_ram) {
             _mem->add_slice(_ram, 0xa000);
         }
-        if (_rom_enable) {
-            _mem->add_slice(&_rom, 0);
-        }
+        disable_rom(_rom_disable);
     }
 
     /**
@@ -428,16 +436,19 @@ public:
      * When CPU access 0xff50, this routine is called to enable
      * or disable to Boot ROM. If enabled the Boot ROM is mapped
      * over the first page of the ROM. When disabled the full ROM
-     * is enabled.
+     * is enabled. Once the ROM is disabled, it can't be re-enabled.
      *
      * @param data Value written to 0xff50.
      */
     virtual void disable_rom(uint8_t data) {
-         _rom_enable = !(data & 1);
-         if (_rom_enable) {
-             _mem->add_slice(&_rom, 0);
+         _rom_disable = (data & 1) | _rom_disable;
+         if (_rom_disable) {
+             _mem->add_slice_sz(this, 0, _rom->size());
          } else {
-             _mem->add_slice_sz(this, 0, _rom.size());
+             /* Map ROM over Cartridge */
+             _mem->add_slice(_rom, 0);
+             /* Make sure ROM is mapped to 0x100 */
+             _mem->add_slice_sz(this, 0x100, 1);
          }
     }
 };
@@ -468,10 +479,11 @@ class Cartridge {
     size_t          _size;     /**< Size of ROM in bytes */
     uint8_t        *_ram_data; /**< Loaded copy of RAM data */
     size_t          _ram_size; /**< Size of RAM data */
+    bool            _color;    /**< Color game boy flag */
 
 public:
-    Cartridge() : _rom(NULL), _ram(NULL), _mem(NULL), _data(NULL),
-                 _size(0), _ram_data(NULL), _ram_size(0) {}
+    explicit Cartridge(bool color) : _rom(NULL), _ram(NULL), _mem(NULL),
+           _data(NULL), _size(0), _ram_data(NULL), _ram_size(0), _color(color) {}
 
     ~Cartridge() {
         delete _rom;
@@ -505,6 +517,9 @@ public:
     void disable_rom(uint8_t data) {
          if (_rom != NULL) {
              _rom->disable_rom(data);
+         }
+         if (_mem != NULL) {
+             _mem->set_disable(data);
          }
     }
 };

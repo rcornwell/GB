@@ -41,6 +41,8 @@ void set_joypad(Joypad *_joy);
 
 void set_palette(int num, uint8_t data);
 
+void set_palette_col(int num, uint8_t data_l, uint8_t data_h);
+
 void draw_pixel(uint8_t pix, int row, int col);
 
 void run_sim();

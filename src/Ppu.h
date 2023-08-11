@@ -45,7 +45,7 @@
  *
  * LCDC:   0xff40
  *
- *                    Bit 0   BG and Window Enable 
+ *                    Bit 0   BG and Window Enable
  *                    Bit 1   OBJ enable
  *                    Bit 2   OBJ size
  *                    Bit 3   BG tile map      0x9800-0x9bff, 0x9c00-0x9fff
@@ -92,7 +92,7 @@
  *
  *                           | Row  | Col | Dot
  *                           76 543  7 6543 210
- *                    1001 1000 000  0 0000 
+ *                    1001 1000 000  0 0000
  *                    1001 1011 111  1 1111
  */
 
@@ -100,12 +100,12 @@
  * @class Tile_data
  * @brief Tile Data area of Memory.
  *
- * Tiles are stored in even/odd byte pairs. The even byte gives the 
+ * Tiles are stored in even/odd byte pairs. The even byte gives the
  * lower bit of each pixel, the odd byte gives the upper bit of each
  * pixed. 8 pixels are packed into 2 bytes.
  *
  * The Tile Memory converts bytes into 2 bit tile pieces whenever
- * any of the bytes are updated. This simplifes the processing of 
+ * any of the bytes are updated. This simplifes the processing of
  * pixels when it is being displayed. Each row of the tiles is stored
  * as an 8 byte array.
  *
@@ -141,7 +141,7 @@ public:
        * @brief Write tile data.
        *
        * Write data to tile memory. Update backup copy of
-       * data first, then read in the even and odd byte and 
+       * data first, then read in the even and odd byte and
        * reconstruct the pixel data for later use.
        * @param[out] data Data write to memory.
        * @param[in] addr Address of location to read.
@@ -180,7 +180,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -192,7 +192,7 @@ public:
       */
      virtual int bus() const override { return 1; }
 };
- 
+
 /**
  * @class Tile_map
  * @brief Tile Map.
@@ -219,7 +219,7 @@ public:
        * @param[in] addr Address of location to read.
        */
       virtual void read(uint8_t &data, uint16_t addr) const override {
-           data = _data[addr - 0x9800];
+           data = _data[addr & 0x07ff];
       }
 
       /**
@@ -230,7 +230,7 @@ public:
        * @param[in] addr Address of location to read.
        */
       virtual void write(uint8_t data, uint16_t addr) override {
-           _data[addr - 0x9800] = data;
+           _data[addr & 0x07ff] = data;
       }
 
       /**
@@ -244,7 +244,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -266,6 +266,7 @@ struct OBJ {
      uint8_t     Y;        /**< Y location */
      uint8_t     flags;    /**< Cached flags */
      uint8_t     tile;     /**< Cached tile */
+     uint8_t     num;      /**< Original Object number */
 };
 
 #define LCDC_ENABLE  0x80  /* Enable the LCD controller */
@@ -281,6 +282,8 @@ struct OBJ {
 #define OAM_Y_FLIP   0x40  /* Flip vertically */
 #define OAM_X_FLIP   0x20  /* Flip horizontally */
 #define OAM_PAL      0x10  /* Palette number */
+#define OAM_BANK     0x08  /* Color Bank select */
+#define OAM_CPAL     0x07  /* Color palette */
 
 #define STAT_LYC_F   0x04  /* Line counter match flag */
 #define MODE_0_IRQ   0x08  /* Post IRQ on entry to MODE 0 HBlank */
@@ -294,7 +297,7 @@ struct OBJ {
  *
  * OAM holds object to display. Each OBJ holds the sprites X,Y
  * coordinates, some flags and the tile to display.
- * At the beginning of each display cycle, OAM scan is called to 
+ * At the beginning of each display cycle, OAM scan is called to
  * select up to 10 objects to display on the given line.
  */
 class OAM : public Slice {
@@ -317,7 +320,7 @@ public:
 
       /* Scan OAM, documented with code. */
       void scan_oam(int row, uint8_t lcdc);
- 
+
       /**
        * @brief Read OAM object data.
        *
@@ -332,7 +335,7 @@ public:
            if (addr < 160)
               data = _data[addr];
            else
-              data = 0xff;
+              data = 0x00;
       }
 
       /**
@@ -360,7 +363,7 @@ public:
       * @brief Return bus number of slice.
       *
       * Used to manage DMA transfers the bus number needs to
-      * be compared with the transfer page to determine how 
+      * be compared with the transfer page to determine how
       * access will occur.
       *
       * Bus number 0 has ROM, and external memory.
@@ -373,9 +376,54 @@ public:
      virtual int bus() const override { return 2; }
 };
 
-enum Fetcher_State { GETA, GETB, DATALA, DATALB, 
+/**
+ * @class ColorPalette
+ * @brief Game Boy Color palette.
+ *
+ * Manage color palette for Game Boy Color.
+ */
+class ColorPalette : public Device {
+     uint8_t      _palette[128];    /**< Palette data */
+     uint8_t      _bg_ctrl;         /**< Background control data */
+     uint8_t      _obj_ctrl;        /**< Object control data */
+
+public:
+
+     ColorPalette() {
+         _bg_ctrl = _obj_ctrl = 0;
+         for (int i = 0; i <128; i++) {
+             _palette[i] = 0;
+         }
+     }
+
+     /**
+      * @brief Address of Color Palette unit.
+      *
+      * @return base address of device.
+      */
+     virtual uint8_t reg_base() const override {
+         return 0x68;
+     }
+
+     /**
+      * @brief Number of registers Color Palette unit has.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 4;
+     }
+
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override;
+
+     virtual void write_reg(uint8_t data, uint16_t addr) override;
+};
+
+
+enum Fetcher_State { GETA, GETB, DATALA, DATALB,
                      DATAHA, DATAHB, RDY };
 enum Fetcher_type  { NONE, BG, WIN, OBJ };
+
 /**
  * @class Ppu
  * @brief Main Picture Processing Unit Object.
@@ -384,11 +432,14 @@ enum Fetcher_type  { NONE, BG, WIN, OBJ };
  * display cycle.
  */
 class Ppu : public Device {
-     Tile_data   _data;            /**< Tile Data object */
-     Tile_map    _map;             /**< Tile Map object */
+     Tile_data   _data0;           /**< Tile Data bank 0 object */
+     Tile_data   _data1;           /**< Tile Data bank 1 object */
+     Tile_map    _map0;            /**< Tile Map bank 0 object */
+     Tile_map    _map1;            /**< Tile Map bank 1 object */
      OAM         _oam;             /**< OAM object. */
      Memory     *_mem;             /**< Pointer to Memory object */
-     
+     bool        _color;           /**< Color support */
+
      uint8_t     LCDC;             /**< Display control */
      uint8_t     STAT;             /**< Display status and IRQ flags */
      uint8_t     SCY;              /**< Location of main display */
@@ -410,7 +461,7 @@ class Ppu : public Device {
      bool        _wind_flg;        /**< Grab from window over background */
      int         _obj_num;         /**< Current displaying object */
 
-     uint8_t     _pix_fifo[16];    /**< Pixel fifo */
+     uint8_t     _pix_fifo[8];     /**< Pixel fifo */
      uint8_t     _obj_fifo[8];     /**< Object fifo */
      int         _pix_count;       /**< Number of pixels left in fifo */
      int         _dot_clock;       /**< Current dot position on row */
@@ -422,6 +473,9 @@ class Ppu : public Device {
      int         _wtile;           /**< Current window tile */
      int         _brow;            /**< Current background row */
      int         _btile;           /**< Current background tile */
+     int         _vbank;           /**< Current Video bank */
+     uint8_t     _ppu_mode;        /**< Ppu mode */
+     uint8_t     _obj_pri;         /**< Object priority mode */
 
 public:
 
@@ -430,7 +484,7 @@ public:
       *
       * Set default Palettes and mode to Vblank.
       */
-     Ppu() {
+     explicit Ppu(bool color) : _color(color) {
          int   i;
          _mem = NULL;
          LX = LY = 0;
@@ -452,8 +506,11 @@ public:
          _dot_clock = 0;
          _f_state = RDY;
          _f_type = NONE;
+         _vbank = 0;
+         _ppu_mode = (color) ? 0x0 : 0xc;
+         _obj_pri = !color;
          /* Clear fifos */
-         for (i = 0; i < 16; i++) {
+         for (i = 0; i < 8; i++) {
              _pix_fifo[i] = 0;
          }
          for (i = 0; i < 8; i++) {
@@ -464,7 +521,7 @@ public:
      }
 
      /**
-      * @brief Address of APU unit.
+      * @brief Address of PPU unit.
       *
       * @return base address of device.
       */
@@ -473,7 +530,7 @@ public:
      }
 
      /**
-      * @brief Number of registers APU unit has.
+      * @brief Number of registers PPU unit has.
       *
       * @return number of registers.
       */
@@ -491,12 +548,20 @@ public:
       */
      void set_mem(Memory *mem) {
           _mem = mem;
-          _mem->add_slice(&_data, 0x8000);
-          _mem->add_slice(&_map, 0x9800);
+          _mem->add_slice(&_data0, 0x8000);
+          _mem->add_slice(&_map0, 0x9800);
           _mem->add_slice(&_oam, 0xfe00);
      }
 
      void check_lyc();
+
+     void set_vbank(uint8_t data);
+
+     void set_ppu_mode(uint8_t data);
+
+     void set_obj_pri(uint8_t data) {
+          _obj_pri = (data & 1);
+     }
 
      void enter_mode0();
 
@@ -508,14 +573,14 @@ public:
 
      virtual void write_reg(uint8_t data, uint16_t addr) override;
 
-     virtual void cycle() override;
+     void dot_cycle();
 
-     void fill_pix(int tile, int st_pix, int row);
+     void fill_pix(int tile, int row);
 
      void shift_fifo();
 
      void display_start();
 
      void display_pixel();
-     
 };
+

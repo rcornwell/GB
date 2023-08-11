@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include "Memory.h"
+#include "System.h"
 
 #define VBLANK_IRQ 0x01
 #define PPU_IRQ    0x02
@@ -148,6 +149,7 @@ public:
       */
      virtual void write_reg([[maybe_unused]]uint8_t data,
                             [[maybe_unused]]uint16_t addr) override {
+         if (trace_flag) { printf("Write unknown %04x %02x\n", addr, data); }
      }
 
      /**

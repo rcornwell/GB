@@ -297,7 +297,7 @@ inline void Cpu::op_dec()
  * Only Carry flag is set, all other flags are cleared.
  * @memberof Cpu
  */
-void Cpu::op_rla()
+inline void Cpu::op_rla()
 {
     uint8_t  c;
     uint8_t  a = fetch_reg<A>();
@@ -314,7 +314,7 @@ void Cpu::op_rla()
  * Only Carry flag is set, all other flags are cleared.
  * @memberof Cpu
  */
-void Cpu::op_rlca()
+inline void Cpu::op_rlca()
 {
     uint8_t c;
     uint8_t a = fetch_reg<A>();
@@ -332,7 +332,7 @@ void Cpu::op_rlca()
  * Only Carry flag is set, all other flags are cleared.
  * @memberof Cpu
  */
-void Cpu::op_rra()
+inline void Cpu::op_rra()
 {
     uint8_t c;
     uint8_t a = fetch_reg<A>();
@@ -350,7 +350,7 @@ void Cpu::op_rra()
  * Only Carry flag is set, all other flags are cleared.
  * @memberof Cpu
  */
-void Cpu::op_rrca()
+inline void Cpu::op_rrca()
 {
     uint8_t c;
     uint8_t a = fetch_reg<A>();
@@ -372,7 +372,7 @@ void Cpu::op_rrca()
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_rl()
+inline void Cpu::op_rl()
 {
     uint8_t c;
     uint8_t r = fetch_reg<R>();
@@ -477,7 +477,7 @@ inline void Cpu::op_srl()
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_rrc()
+inline void Cpu::op_rrc()
 {
     uint8_t c;
     uint8_t r = fetch_reg<R>();
@@ -498,7 +498,7 @@ void Cpu::op_rrc()
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_rr()
+inline void Cpu::op_rr()
 {
     uint8_t c;
     uint8_t r = fetch_reg<R>();
@@ -540,7 +540,7 @@ inline void Cpu::op_swap()
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_bit(uint8_t mask)
+inline void Cpu::op_bit(uint8_t mask)
 {
     uint8_t r = fetch_reg<R>();
 
@@ -557,7 +557,7 @@ void Cpu::op_bit(uint8_t mask)
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_set(uint8_t mask)
+inline void Cpu::op_set(uint8_t mask)
 {
     uint8_t r = fetch_reg<R>();
 
@@ -574,7 +574,7 @@ void Cpu::op_set(uint8_t mask)
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_res(uint8_t mask)
+inline void Cpu::op_res(uint8_t mask)
 {
     uint8_t r = fetch_reg<R>();
 
@@ -590,7 +590,7 @@ void Cpu::op_res(uint8_t mask)
  * @memberof Cpu
  */
 template <reg_name R>
-void Cpu::op_ldimd()
+inline void Cpu::op_ldimd()
 {
     uint8_t data;
 
@@ -604,7 +604,7 @@ void Cpu::op_ldimd()
  * Complement accumulator, set Negative and Half carry flag.
  * @memberof Cpu
  */
-void Cpu::op_cpl()
+inline void Cpu::op_cpl()
 {
     uint8_t a = fetch_reg<A>();
     a ^= 0xff;
@@ -618,7 +618,7 @@ void Cpu::op_cpl()
  * Set the carry flag. Negative and half carry are cleared.
  * @memberof Cpu
  */
-void Cpu::op_scf()
+inline void Cpu::op_scf()
 {
     F &= ZERO;
     F |= CARRY;
@@ -630,7 +630,7 @@ void Cpu::op_scf()
  * Reverse the carry flag. Negative and half carry are cleared.
  * @memberof Cpu
  */
-void Cpu::op_ccf()
+inline void Cpu::op_ccf()
 {
     F &= ZERO|CARRY;
     F ^= CARRY;
@@ -643,7 +643,7 @@ void Cpu::op_ccf()
  * Carry is set if carry out of bit 7, Half Carry if carry out of bit 3.
  * @memberof Cpu
  */
-void Cpu::op_addsp()
+inline void Cpu::op_addsp()
 {
     uint8_t  data = fetch();
     int16_t  v = (int16_t)((int8_t)data);
@@ -664,7 +664,7 @@ void Cpu::op_addsp()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_ldix()
+inline void Cpu::op_ldix()
 {
     uint16_t addr;
 
@@ -681,7 +681,7 @@ void Cpu::op_ldix()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_dad()
+inline void Cpu::op_dad()
 {
     uint16_t   r = regpair<HL>();
     uint16_t   v = regpair<RP>();
@@ -701,7 +701,7 @@ void Cpu::op_dad()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_inc()
+inline void Cpu::op_inc()
 {
     uint16_t addr;
 
@@ -718,7 +718,7 @@ void Cpu::op_inc()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_dec()
+inline void Cpu::op_dec()
 {
     uint16_t addr;
 
@@ -733,7 +733,7 @@ void Cpu::op_dec()
  * Stack pointer is stored in address following the instruction.
  * @memberof Cpu
  */
-void Cpu::op_stsp()
+inline void Cpu::op_stsp()
 {
     uint16_t addr = fetch_addr();;
     store_double(regpair<SP>(), addr);
@@ -746,7 +746,7 @@ void Cpu::op_stsp()
  * Carry is set if carry out of bit 7, Half Carry if carry out of bit 3.
  * @memberof Cpu
  */
-void Cpu::op_ldhl()
+inline void Cpu::op_ldhl()
 {
     uint8_t  data = fetch();
     uint16_t v = (int16_t)((int8_t)data);
@@ -765,7 +765,7 @@ void Cpu::op_ldhl()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_stax()
+inline void Cpu::op_stax()
 {
     uint16_t addr;
 
@@ -781,7 +781,7 @@ void Cpu::op_stax()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_ldax()
+inline void Cpu::op_ldax()
 {
     uint16_t addr;
 
@@ -797,7 +797,7 @@ void Cpu::op_ldax()
  * @memberof Cpu
  */
 template <int o>
-void Cpu::op_ldst_ff()
+inline void Cpu::op_ldst_ff()
 {
     uint8_t  offset = fetch();
 
@@ -816,7 +816,7 @@ void Cpu::op_ldst_ff()
  * @memberof Cpu
  */
 template <int o>
-void Cpu::op_ldst_c()
+inline void Cpu::op_ldst_c()
 {
     uint8_t  offset = regs[C];
 
@@ -835,7 +835,7 @@ void Cpu::op_ldst_c()
  * @memberof Cpu
  */
 template <int o>
-void Cpu::op_ldi()
+inline void Cpu::op_ldi()
 {
     uint16_t addr = regpair<HL>();
     if constexpr (o) {
@@ -855,7 +855,7 @@ void Cpu::op_ldi()
  * @memberof Cpu
  */
 template <int o>
-void Cpu::op_ldd()
+inline void Cpu::op_ldd()
 {
     uint16_t addr = regpair<HL>();
     if constexpr (o) {
@@ -876,7 +876,7 @@ void Cpu::op_ldd()
  * @memberof Cpu
  */
 template <int o>
-void Cpu::op_ldst_abs()
+inline void Cpu::op_ldst_abs()
 {
     uint16_t addr;
 
@@ -897,7 +897,7 @@ void Cpu::op_ldst_abs()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_pop()
+inline void Cpu::op_pop()
 {
     uint16_t addr;
 
@@ -914,7 +914,7 @@ void Cpu::op_pop()
  * @memberof Cpu
  */
 template <reg_pair RP>
-void Cpu::op_push()
+inline void Cpu::op_push()
 {
     uint16_t addr;
     addr = regpair<RP>();
@@ -932,7 +932,7 @@ void Cpu::op_push()
  * @param cond If non-zero do call, otherwise nothing.
  * @memberof Cpu
  */
-void Cpu::op_call(uint8_t cond)
+inline void Cpu::op_call(uint8_t cond)
 {
     uint16_t addr;
 
@@ -953,7 +953,7 @@ void Cpu::op_call(uint8_t cond)
  * @param cond If non-zero do Jump, otherwise nothing.
  * @memberof Cpu
  */
-void Cpu::op_jp(uint8_t cond)
+inline void Cpu::op_jp(uint8_t cond)
 {
     uint16_t addr;
     addr = fetch_addr();
@@ -972,7 +972,7 @@ void Cpu::op_jp(uint8_t cond)
  * @param cond If non-zero do Jump, otherwise nothing.
  * @memberof Cpu
  */
-void Cpu::op_jr(uint8_t cond)
+inline void Cpu::op_jr(uint8_t cond)
 {
     uint8_t  data = fetch();
     if (cond) {
@@ -990,7 +990,7 @@ void Cpu::op_jr(uint8_t cond)
  * @param cond If non-zero do return, otherwise nothing.
  * @memberof Cpu
  */
-void Cpu::op_ret(uint8_t cond)
+inline void Cpu::op_ret(uint8_t cond)
 {
     if (cond) {
         mem->internal();
@@ -1007,7 +1007,7 @@ void Cpu::op_ret(uint8_t cond)
  * checked. This does not occur on unconditional returns.
  * @memberof Cpu
  */
-void Cpu::op_return()
+inline void Cpu::op_return()
 {
     pc = pop();
     mem->internal();
@@ -1020,7 +1020,7 @@ void Cpu::op_return()
  * are held off for one cycle.
  * @memberof Cpu
  */
-void Cpu::op_reti()
+inline void Cpu::op_reti()
 {
     pc = pop();
     ime = true;
@@ -1033,7 +1033,7 @@ void Cpu::op_reti()
  * Push the current PC and transfer to location n * 8.
  * @memberof Cpu
  */
-void Cpu::op_rst(int n)
+inline void Cpu::op_rst(int n)
 {
     mem->internal();
     push(pc);
@@ -1045,7 +1045,7 @@ void Cpu::op_rst(int n)
  *
  * @memberof Cpu
  */
-void Cpu::op_sphl()
+inline void Cpu::op_sphl()
 {
     sp = regpair<HL>();
     mem->internal();
@@ -1056,7 +1056,7 @@ void Cpu::op_sphl()
  *
  * @memberof Cpu
  */
-void Cpu::op_pchl()
+inline void Cpu::op_pchl()
 {
     pc = regpair<HL>();
 }
@@ -1068,7 +1068,7 @@ void Cpu::op_pchl()
  *
  * @memberof Cpu
  */
-void Cpu::op_di()
+inline void Cpu::op_di()
 {
     ime = false;
     ime_hold = false;
@@ -1081,7 +1081,7 @@ void Cpu::op_di()
  * next instruction will be executed.
  * @memberof Cpu
  */
-void Cpu::op_ei()
+inline void Cpu::op_ei()
 {
     ime_hold = !ime;
     ime = true;
@@ -1093,7 +1093,7 @@ void Cpu::op_ei()
  * Halt CPU until an interrupt condition wakes it up.
  * @memberof Cpu
  */
-void Cpu::op_halt()
+inline void Cpu::op_halt()
 {
     halted = true;
 }
@@ -1105,10 +1105,31 @@ void Cpu::op_halt()
  * Display, Timer and Audio are turned all also. Next byte is ignored.
  * @memberof Cpu
  */
-void Cpu::op_stop()
+inline void Cpu::op_stop()
 {
-    halted = true;
-    pc++;
+    uint8_t     data;
+    uint8_t     irq = irq_en & irq_flg & 0x1f;
+    joy.read_reg(data, 0);
+    /* Check if Button press */
+    if ((data & 0xf) != 0xf) {
+        if (irq != 0) {
+           halted = true;
+           pc++;
+        }
+        return;
+    }
+
+    /* reset DIV register */
+    timer.write_reg(0, 0x4);
+    if (irq == 0) {
+       pc++;
+    }
+    /* Check if speed change */
+    if (key != NULL && key->sw_speed) {
+        mem->switch_speed();
+    } else {
+        stopped = true;
+    }
 }
 
 /**
@@ -1117,7 +1138,7 @@ void Cpu::op_stop()
  * Do nothing.
  * @memberof Cpu
  */
-void Cpu::op_nop()
+inline void Cpu::op_nop()
 {
 }
 
@@ -1128,7 +1149,7 @@ void Cpu::op_nop()
  * use IF flags to determine which vector to use.
  */
 
-void Cpu::do_irq()
+inline void Cpu::do_irq()
 {
     uint16_t addr = 0x40;
     uint8_t  data;
@@ -1240,7 +1261,6 @@ void Cpu::second(uint8_t data)
 #define IMD(f, b) OREG(ld##f, b)
 #define LDX(f, b) LDSTR(f, b+0x8, b, BC) LDSTR(f, b+0x18, b+0x10, DE)
 #define OPR(f, b1, b2) case b1: op_##f(); break;
-#define OP2(f, b1, b2) OPR(f, b1, b2)
 #define STKS(f,b)      case b:      op_##f<BC>(); break; \
                        case b+0x10: op_##f<DE>(); break; \
                        case b+0x20: op_##f<HL>(); break; \
@@ -1301,6 +1321,22 @@ void Cpu::step()
         return;
     }
 
+    /* Check if stoped state */
+    if (stopped) {
+        uint8_t     jdata;
+        mem->internal();
+        joy.read_reg(jdata, 0);
+        /* Check if Button press */
+        if ((jdata & 0xf) != 0xf) {
+            if ((irq_en & irq_flg & 0x1f) == 0) {
+                halted = true;
+                pc++;
+            }
+            stopped = false;
+        }
+        return;
+    }
+
     /* If halted if any interrupts pending, exit halt state */
     if (halted && (irq_en & irq_flg & 0x1f) != 0) {
        if (ime_hold) {
@@ -1347,7 +1383,6 @@ void Cpu::step()
 #undef ABS
 #undef LDX
 #undef OPR
-#undef OP2
 #undef STKS
 #undef STK
 #undef RSTX
@@ -1388,7 +1423,6 @@ string toUpper(string str)
 #define ABS(b) { toUpper("ld"), ABS, b, 0357, 1},  /* LD (abs),A */
 #define IMD(b) { toUpper("ld"), IMD, b, 0307, 2},  /* LD r,# */
 #define OPR(f, b1, b2) { toUpper(#f), OPR, b1, 0377, 1}, /* f */
-#define OP2(f, b1, b2) { toUpper(#f), OPR, b1, 0377, 2}, /* f */
 #define BIT(f, b1, b2) { toUpper(#f), BIT, b2, 0300, 2}, /* f b,r */
 #define SHF(f, b1, b2) { toUpper(#f), SHF, b2, 0370, 2}, /* f r */
 #define STK(f, b1, b2) { toUpper(#f), STK, b1, 0317, 1}, /* f rp */
