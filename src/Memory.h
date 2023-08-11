@@ -199,7 +199,7 @@ public:
       * @brief Create object with given data and size.
       */
      explicit Area(uint8_t *data, size_t size) : _data(data) {
-         _mask = size - 1;
+         _mask = (uint16_t)size - 1;
          _size = size >> 8;
      }
 

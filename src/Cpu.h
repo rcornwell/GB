@@ -473,7 +473,7 @@ private:
 
 #define OPR(name)    void op_##name();
 #define DEC(name)    template <reg_name R>void op_##name(); \
-                     template <reg_pair RP>void op_##name();
+                     template <reg_pair RP>void op_##name##16();
 #define BIT(name)    template <reg_name R>void op_##name(uint8_t bit);
 #define JMP(name)    CAL(name) \
                      void op_pchl();

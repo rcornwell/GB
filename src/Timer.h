@@ -117,7 +117,7 @@ public:
                  /* Generate timer interrupt */
                  post_irq(TIMER_IRQ);
                  /* Reload tima */
-                 _tima = _tma;
+                 _tima = (uint16_t)_tma;
                  _time_over = true;
              } else {
                  /* Update tima if div bit changed from 1 to 0 */
@@ -142,10 +142,10 @@ public:
       */
      virtual void read_reg(uint8_t &data, uint16_t addr) const override {
           switch(addr & 0x3) {
-          case 0: data = (_div >> 8) & 0xff; break;     /* ff04 */
-          case 1: data = _tima;       break;            /* ff05 */
-          case 2: data = _tma & 0xff; break;            /* ff06 */
-          case 3: data = _tac | 0xf8; break;            /* ff07 */
+          case 0: data = (_div >> 8) & 0xff; break;      /* ff04 */
+          case 1: data = (uint8_t)(_tima & 0xff); break; /* ff05 */
+          case 2: data = _tma & 0xff; break;             /* ff06 */
+          case 3: data = _tac | 0xf8; break;             /* ff07 */
           }
      }
 

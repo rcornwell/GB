@@ -580,7 +580,7 @@ run_sim()
        elapsedMS += time_left;
        if (elapsedMS < FRAME_TIME) {
            cpu->run();
-           SDL_Delay(floor(FRAME_TIME - elapsedMS));
+           SDL_Delay((uint32_t)floor(FRAME_TIME - elapsedMS));
        }
 
        /* Compute amount of time delay actually waited for */

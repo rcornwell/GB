@@ -91,7 +91,8 @@ public:
      uint8_t    sample;      /**< Current output value */
 
      Sound() : enabled(false), active(false), sample(0) {
-          _chan = _freq_cnt = _int_freq = _count = _length = _int_len = 0;
+          _freq_cnt = _int_freq = _count = _length = _int_len = 0;
+          _chan = 0;
           _pos = _volume = _int_vol = _int_vol_len = 0;
           _vol_sweep = _vol_dir = _vol_len = _duty = 0;
           _dac_enable = false;
@@ -1064,22 +1065,22 @@ public:
            /* Compute volume of samples */
            switch ((regs[0] >> 4) & 07) {
            case 0:   SO1 = 0; break;
-           case 1:   SO1 = SO1 >> 8; break;
-           case 2:   SO1 = SO1 >> 4; break;
-           case 3:   SO1 = (SO1 >> 4) + (SO1 >> 8); break;
-           case 4:   SO1 = SO1 >> 2; break;
-           case 5:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
-           case 6:   SO1 = (SO1 >> 2) + (SO1 >> 4) + (SO1 >> 8); break;
+           case 1:   SO1 = SO1 >> 4; break;
+           case 2:   SO1 = SO1 >> 2; break;
+           case 3:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
+           case 4:   SO1 = SO1 >> 1; break;
+           case 5:   SO1 = (SO1 >> 1) + (SO1 >> 2); break;
+           case 6:   SO1 = (SO1 >> 1) + (SO1 >> 2) + (SO1 >> 4); break;
            case 7:   break;
            }
            switch (regs[0] & 07) {
            case 0:   SO1 = 0; break;
-           case 1:   SO1 = SO1 >> 8; break;
-           case 2:   SO1 = SO1 >> 4; break;
-           case 3:   SO1 = (SO1 >> 4) + (SO1 >> 8); break;
-           case 4:   SO1 = SO1 >> 2; break;
-           case 5:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
-           case 6:   SO1 = (SO1 >> 2) + (SO1 >> 4) + (SO1 >> 8); break;
+           case 1:   SO1 = SO1 >> 4; break;
+           case 2:   SO1 = SO1 >> 2; break;
+           case 3:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
+           case 4:   SO1 = SO1 >> 1; break;
+           case 5:   SO1 = (SO1 >> 1) + (SO1 >> 2); break;
+           case 6:   SO1 = (SO1 >> 1) + (SO1 >> 2) + (SO1 >> 4); break;
            case 7:   break;
            }
            /* Output the sample */
@@ -1111,6 +1112,7 @@ public:
         case 2:
         case 6:    s1.update_sweep();
                    /* Fall through */
+                   [[fallthrough]];
         case 0:
         case 4:    s1.update_length();
                    s2.update_length();

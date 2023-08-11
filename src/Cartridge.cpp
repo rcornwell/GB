@@ -187,12 +187,12 @@ void Cartridge::set_mem(Memory *mem) {
      if (_data[0x147] > (sizeof(rom_type)/sizeof(int))) {
          _rom = new Cartridge_ROM(_mem, _data, _size, _color);
      } else {
-         int  type = rom_type[_data[0x147]];
+         int  type = rom_type[_data[0x147] & 0x1f];
 
          /* Special check for MMM01 cartridge */
          if ((type & 0xf) == MBC1 && _size > (64 * 1024)) {
              if (header_checksum((_size / (32 * 1024) - 1))) {
-                 type = rom_type[_data[0x147 + (_size - (32 * 1024))]];
+                 type = rom_type[_data[0x147 + (_size - (32 * 1024))] & 0x1f];
              }
          }
          switch (type & 0xf) {

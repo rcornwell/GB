@@ -209,7 +209,7 @@ public:
      */
     explicit Cartridge_bank(uint8_t *data, size_t size) :
            _data(data), _size(size), _bank(0x4000), _ram_bank(0),_ram(NULL) {
-        _mask = size - 1;
+        _mask = (uint32_t)size - 1;
     }
 
     /**

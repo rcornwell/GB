@@ -303,7 +303,7 @@ struct OBJ {
 class OAM : public Slice {
       uint8_t    _data[256];      /**< OAM data */
 public:
-      OBJ        _objs[10];       /**< Sorted object list */
+      struct OBJ _objs[10];       /**< Sorted object list */
 
       OAM() {
           for (int i = 0; i < 256; i++) {

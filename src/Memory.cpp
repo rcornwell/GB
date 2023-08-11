@@ -76,6 +76,7 @@ void Memory::cycle() {
                  return;
              }
              /* Fall through */
+             [[fallthrough]];
      case 1:
              _apu->cycle_early();
              _ppu->dot_cycle();
@@ -91,6 +92,7 @@ void Memory::cycle() {
                  return;
              }
              /* Fall through */
+             [[fallthrough]];
      case 3:
              _cycles++;
              _timer->cycle();
@@ -191,7 +193,7 @@ void Memory::read_nocycle(uint8_t &data, uint16_t addr) {
 void Memory::add_slice_sz(Slice *slice, uint16_t base, size_t sz) {
     int   sl = (base >> 8) & 0xff;
 
-    for (size_t i = 0; i < sz; i++) {
+    for (size_t i = 0; i < sz && (i + sl) < 256; i++) {
         _mem[sl+i] = slice;
     }
 }
@@ -200,7 +202,7 @@ void Memory::add_slice(Slice *slice, uint16_t base) {
     int     sl = (base >> 8) & 0xff;
     size_t  sz = slice->size();
 
-    for (size_t i = 0; i < sz; i++) {
+    for (size_t i = 0; i < sz && (i + sl) < 256; i++) {
         _mem[sl+i] = slice;
     }
 }
@@ -209,7 +211,7 @@ void Memory::free_slice(uint16_t base) {
     int     sl = (base >> 8) & 0xff;
     size_t  sz = _mem[sl]->size();
 
-    for (size_t i = 0; i < sz; i++) {
+    for (size_t i = 0; i < sz && (i + sl) < 256; i++) {
         _mem[sl+i] = &_empty;
     }
 }

@@ -701,7 +701,7 @@ inline void Cpu::op_dad()
  * @memberof Cpu
  */
 template <reg_pair RP>
-inline void Cpu::op_inc()
+inline void Cpu::op_inc16()
 {
     uint16_t addr;
 
@@ -718,7 +718,7 @@ inline void Cpu::op_inc()
  * @memberof Cpu
  */
 template <reg_pair RP>
-inline void Cpu::op_dec()
+inline void Cpu::op_dec16()
 {
     uint16_t addr;
 
@@ -1278,7 +1278,7 @@ void Cpu::second(uint8_t data)
 #define OREG(f,b)      OREGX(f,b,B) OREGX(f,b,C) OREGX(f,b,D) OREGX(f,b,E) \
                        OREGX(f,b,H) OREGX(f,b,L) OREGX(f,b,M) OREGX(f,b,A)
 #define DEC(f,b1,b2)   OREG(f,b1) \
-                       STKS(f,b2)
+                       STKS(f##16,b2)
 #define OPI(f,b)       case b: data = fetch(); op_##f(data); break;
 #define OPS(a,f,b)     case a+(int)b: data = fetch_reg<b>(); op_##f(data); break;
 #define ROPR(f,b1,b2)  OPS(b1,f,B) OPS(b1,f,C) OPS(b1,f,D) OPS(b1,f,E) \

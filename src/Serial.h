@@ -119,7 +119,9 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
              if (_xfer) {
                 data |= 0x80;
              }
-             data |= _clock;
+             if (_clock) {
+                data |= 1;
+             }
          }
      }
 
