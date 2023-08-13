@@ -74,9 +74,10 @@ int rom_type[0x1f] = {
  * If there is already RAM make sure it is same size as
  * cartridge defined RAM.
  */
-void Cartridge::set_ram() {
+Cartridge_RAM *Cartridge_ROM::set_ram(int type, uint8_t *ram_data, size_t ram_size) {
 #define K  1024
      size_t     size;
+
      /* Compute size of RAM based on ROM data */
      switch (_data[0x149]) {
      default:
@@ -87,20 +88,22 @@ void Cartridge::set_ram() {
      case 4:    size = 128*K; break;
      }
 
+     /* If size of RAM is zero, just return. */
+     if (size == 0) {
+         return _ram;
+     }
      /* If we already have RAM data, try and use it */
-     if (_ram_data != NULL) {
-         if (size != _ram_size) {
-             std::cerr << "Invalid Save file size: " << _ram_size <<
+     if (ram_data != NULL) {
+         if (size != ram_size) {
+             std::cerr << "Invalid Save file size: " << ram_size <<
                " Cartridge says: " << size << std::endl;
              exit(1);
          }
-         _ram = new Cartridge_RAM(_ram_data, _ram_size);
+         _ram = new Cartridge_RAM(ram_data, ram_size);
      } else {
          _ram = new Cartridge_RAM(size);
-         _ram_size = size;
      }
-     /* Connect ROM object to RAM to manage banks */
-     _rom->set_ram(_ram);
+     return _ram;
 }
 
 /**
@@ -145,15 +148,13 @@ bool Cartridge::header_checksum(int bank) {
 }
 
 /**
- * @brief Give cartridge object a pointer to the contents of the ROM.
+ * @brief Setup Cartridge ROM and Bank switching.
  *
- * Set pointers to ROM and size.
- * @param data Pointer to ROM data.
- * @param size Size of ROM in bytes.
+ * Look in the rom_type table to determine type and features of
+ * ROM. Then create a object of the correct class to access the
+ * ROM and handle bank switching as needed.
  */
-void Cartridge::set_rom(uint8_t *data, size_t size) {
-     _data = data;
-     _size = size;
+void Cartridge::set_mem(Memory *mem) {
      std::cout << "ROM = " << std::hex << (int)_data[0x147] << " SZ= " << (int)_data[0x148];
      std::cout << " RAM = " << (int)_data[0x149];
      uint8_t _type = _data[0x147];
@@ -161,7 +162,7 @@ void Cartridge::set_rom(uint8_t *data, size_t size) {
          std::cerr << "Unknown ROM type" << std::endl;
          _type = 0;
      }
-     int  type = rom_type[_type];
+     int  type = rom_type[_type & 0x1f];
      std::cout << " type= " << std::hex << type;
      if (type & CRAM) {
         std::cout << " RAM";
@@ -173,28 +174,18 @@ void Cartridge::set_rom(uint8_t *data, size_t size) {
         std::cout << " Timer";
      }
      std::cout << std::endl;
-}
-
-/**
- * @brief Setup Cartridge ROM and Bank switching.
- *
- * Look in the rom_type table to determine type and features of
- * ROM. Then create a object of the correct class to access the
- * ROM and handle bank switching as needed.
- */
-void Cartridge::set_mem(Memory *mem) {
      _mem = mem;
-     if (_data[0x147] > (sizeof(rom_type)/sizeof(int))) {
+     if (_type > (sizeof(rom_type)/sizeof(int))) {
          _rom = new Cartridge_ROM(_mem, _data, _size, _color);
      } else {
-         int  type = rom_type[_data[0x147] & 0x1f];
-
          /* Special check for MMM01 cartridge */
          if ((type & 0xf) == MBC1 && _size > (64 * 1024)) {
              if (header_checksum((_size / (32 * 1024) - 1))) {
                  type = rom_type[_data[0x147 + (_size - (32 * 1024))] & 0x1f];
              }
          }
+
+         /* Class factory to create specific type of Mapper */
          switch (type & 0xf) {
          case ROM:
               _rom = new Cartridge_ROM(_mem, _data, _size, _color);
@@ -204,8 +195,6 @@ void Cartridge::set_mem(Memory *mem) {
               break;
          case MBC2:
               _rom = new Cartridge_MBC2(_mem, _data, _size, _color);
-              _ram = new Cartridge_MBC2_RAM(512);
-              _rom->set_ram(_ram);
               break;
          case MBC3:
               _rom = new Cartridge_MBC3(_mem, _data, _size, _color);
@@ -217,10 +206,12 @@ void Cartridge::set_mem(Memory *mem) {
               _rom = new Cartridge_MMM01(_mem, _data, _size, _color);
               break;
         }
-        if (type & CRAM && _ram == NULL) {
-            set_ram();
-        }
+        /* Create any RAM if need. */
+        _ram = _rom->set_ram(type, _ram_data, _ram_size);
+
      }
+
+     /* Map the cartridge into Memory. */
      _rom->map_cart();
 }
 

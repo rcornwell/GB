@@ -92,7 +92,7 @@ int main(int argc, char **argv)
      /* Print banner out */
      std::cout << "Game Boy Emulator (" << VERSION_MAJOR << "."
                << VERSION_MINOR << ")" << std::endl;
-     scale = 1;
+     scale = 4;
      POWER = 1;
      trace_flag = false;
      color = false;
@@ -173,9 +173,7 @@ int main(int argc, char **argv)
                 rom_name << std::endl;
 
      /* Create Cartridge object */
-     cart = new Cartridge(color);
-
-     cart->set_rom(rom, rom_size);
+     cart = new Cartridge(rom, rom_size, color);
 
      /* Check if no save name give. */
      if (sav_name.empty()) {
@@ -198,6 +196,9 @@ int main(int argc, char **argv)
 
          ramFile.read((char *)ram, ram_sz);
          ramFile.close();
+         std::cerr << "Read " << (int)ram_sz << " bytes from " <<
+                    sav_name << std::endl;
+
          cart->load_ram(ram, ram_sz);
      }
 

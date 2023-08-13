@@ -134,8 +134,9 @@ public:
            io->add_device(hdma);
         }
 
-        /* Timer needs to send events to APU */
+        /* Timer needs to send events to APU, and Cartridge */
         timer.set_apu(&apu);
+        timer.set_cart(cart);
 
         running = false;
         F = ZERO;

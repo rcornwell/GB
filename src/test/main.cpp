@@ -98,9 +98,7 @@ TEST_GROUP(CPU)
 
 TEST(CPU, memtiming)
 {
-     Cartridge     cart(false);
-
-     cart.set_rom(&mem_timing[0], mem_timing_sz);
+     Cartridge     cart(&mem_timing[0], mem_timing_sz, false);
 
      Cpu          *cpu = new Cpu(&cart, false);
 
@@ -114,9 +112,7 @@ TEST(CPU, memtiming)
 
 TEST(CPU, timing)
 {
-     Cartridge     cart(false);
-
-     cart.set_rom(&instr_timing[0], instr_timing_sz);
+     Cartridge     cart(&instr_timing[0], instr_timing_sz, false);
 
      Cpu          *cpu = new Cpu(&cart, false);
 
@@ -133,8 +129,7 @@ TEST(CPU, instr)
     uint64_t    tim = 0;
     uint64_t    n_inst = 0;
 
-    Cartridge     cart(false);
-    cart.set_rom(&cpu_inst[0], cpu_inst_sz);
+    Cartridge     cart(&cpu_inst[0], cpu_inst_sz, false);
     Cpu          *cpu = new Cpu(&cart, false);
     cpu->run();
     auto start = chrono::high_resolution_clock::now();

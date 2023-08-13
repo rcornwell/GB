@@ -94,18 +94,6 @@ public:
     }
 
     /**
-     * @brief Pass pointer to Caridge RAM so ROM can enable and select banks.
-     *
-     * Gives pointer to Cartrige RAM, this is passed to the Bank ROM.
-     *
-     * @param ram Pointer to Cartridge RAM.
-     */
-    virtual void set_ram(Cartridge_RAM *ram) override {
-         _ram = ram;
-         _rom_bank->set_ram(ram);
-    }
-
-    /**
      * @brief Map Cartridge into Memory space.
      *
      * Map Cartridge ROM and RAM objects into memory space. Initially the RAM
@@ -113,6 +101,7 @@ public:
      * the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
+         _rom_bank->set_ram(_ram);
         /* Map ourselves in place */
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);

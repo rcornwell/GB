@@ -42,6 +42,10 @@ public:
         _mask = 0x1ff;
     }
 
+    explicit Cartridge_MBC2_RAM(uint8_t *data, size_t size) : Cartridge_RAM(data, size) {
+        _mask = 0x1ff;
+    }
+
     /**
      * @brief Read RAM data.
      *
@@ -77,14 +81,6 @@ public:
        return 32;
     }
 
-    /**
-     * @brief Size of RAM to save to file.
-     *
-     * @return 512 bytes.
-     */
-    virtual size_t size_bytes() const {
-       return 512;
-    }
 };
 
 /**
@@ -116,6 +112,22 @@ public:
     }
 
     /**
+     * @brief Create RAM for MBC2 Cartridge.
+     *
+     * MBC2 always has 512 nybbles of RAM. These are repeated across the RAM space.
+     *
+     * @param type Type bits of Cartridge.
+     * @param ram_data RAM data that was loaded from Save file.
+     * @param ram_size Size of RAM file.
+     * @return Pointer to RAM object.
+     */
+    virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size) override {
+        ram_size = 512;
+        _ram = new Cartridge_MBC2_RAM(ram_data, ram_size);
+        return _ram;
+    }
+
+    /**
      * @brief Map Cartridge into Memory space.
      *
      * Map Cartridge ROM and RAM objects into memory space. Initially the RAM
@@ -123,6 +135,7 @@ public:
      * the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
+        _rom_bank->set_ram(_ram);
         /* Map ourselves in place */
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);

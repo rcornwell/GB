@@ -31,6 +31,133 @@
 #include "Cartridge.h"
 
 /**
+ * @brief Holds cartridge ram if any.
+ *
+ * Cartridge ram for MBC3 cartridges with RTC option.
+ * multiple banks of RAM, this is controlled by mapper hardware. Similar
+ * to RAM object, but supports paging. Cartridges can have anywhere from
+ * 0 bytes of memory to 32Kbytes of memory.
+ */
+class Cartridge_MBC3_RAM : public Cartridge_RAM {
+    bool        _latched;       /**< Current time is latched */
+    uint16_t    _rtc_base;      /**< Base address of RTC */
+public:
+
+    /**
+     * @brief Create Cartridge RAM space.
+     *
+     * Create RAM space for a Cartridge, size specifies power
+     * of 2 number of bytes to allocation. Also mask off any
+     * unaccessable bits of bank select if RAM is too small to
+     * have banks. This makes RAM bank bits over size to be
+     * effectively ignored.
+     *
+     * @param size Amount in bytes of RAM to allocate.
+     */
+    explicit Cartridge_MBC3_RAM(size_t size) : Cartridge_RAM() {
+        _data = new uint8_t [size + 48];
+        _mask = 0x1fff;
+        _rtc_base = size;
+        _size = size;
+        _bank_mask = 0xf;
+        _bank = 0;
+        _need_delete = true;
+        _latched = false;
+        std::cout << "Timer" << std::endl;
+    }
+
+    /**
+     * @brief Create a Cartridge RAM from file.
+     *
+     * Create RAM space for a Cartidge, size is number of bytes
+     * in file, and data points to existing data.
+     *
+     * @param data Pointer to data to access.
+     * @param size Size of data in bytes.
+     */
+    explicit Cartridge_MBC3_RAM(uint8_t *data, size_t size) : Cartridge_RAM() {
+        _data = data;
+        _mask = 0x1fff;
+        _rtc_base = size;
+        _size = size;
+        _bank = 0;
+        _bank_mask = 0xf;
+        _need_delete = false;
+        _latched = false;
+        std::cout << "Timer" << std::endl;
+    }
+
+    /**
+     * @brief Routine to read from memory.
+     *
+     * Return the value based on the mask to select range of access..
+     * @param[out] data Data read from memory.
+     * @param[in] addr Address of memory to read.
+     */
+    virtual void read(uint8_t &data, uint16_t addr) const override;
+
+    /**
+     * @brief Routine to write to memory.
+     *
+     * Set memory at address to data, based on mask.
+     * @param[in] data Data to write to memory.
+     * @param[in] addr Address of memory to write.
+     */
+    virtual void write(uint8_t data, uint16_t addr) override;
+
+    /**
+     * @brief Size of RAM in 256 bytes.
+     *
+     * @return 32 for 8k of RAM.
+     */
+    virtual size_t size() const override {
+       return 32;
+    }
+
+    /**
+     * @brief Return RAM data pointer.
+     *
+     * Update the time value in the end of memory before returning pointer.
+     *
+     * @return pointer to ram data.
+     */
+    virtual uint8_t *ram_data() override;
+
+    /**
+     * @brief Return RAM size of RAM in bytes.
+     *
+     * @return size of RAM in bytes.
+     */
+    virtual size_t ram_size() override {
+           return _size + 48;
+    }
+
+    /**
+     * @brief Latch time value.
+     *
+     */
+    void latch(uint8_t data);
+
+    /**
+     * @brief Tick callback function.
+     *
+     * Called once per second to update the time value.
+     */
+    virtual void tick() override;
+
+    /**
+     * @brief Update time when loading cartridge from memory.
+     *
+     */
+    void update_time();
+
+    /**
+     * @brief Advance the day by one.
+     */
+    void advance_day();
+};
+
+/**
  * @brief Banked part of MBC3 type Cartridge.
  *
  * Handles bank switching for MBC3 type cartridges.
@@ -42,10 +169,12 @@
  * RTC registers.
  */
 class Cartridge_MBC3_bank : public Cartridge_bank {
-    bool       _latch;
 public:
-    Cartridge_MBC3_bank(uint8_t *data, size_t size) :
-           Cartridge_bank(data, size) , _latch(false) {}
+    bool     rtc_flag;       /**< Indicate whether cartridge supports RTC */
+
+    Cartridge_MBC3_bank(uint8_t *data, size_t size) : Cartridge_bank(data, size) {
+        rtc_flag = false;
+    }
 
     /**
      * @brief Handle writes to ROM.
@@ -58,17 +187,17 @@ public:
         switch (addr >> 13) {
         case 2:          /* 0x4000 - 0x5fff */
                 /* MBC3   select ram bank */
-                _ram_bank = ((uint32_t)(data)) << 13;
+                _ram_bank = ((uint32_t)(data & 0xf));
                 if (_ram) {
                     _ram->set_bank(_ram_bank);
                 }
                 break;
         case 3:          /* 0x6000 - 0x7fff */
-                /* MBC3   select memory model */
-                /*         0 select 16/8
-                 *         1 select 4/32
-                 */
-                _latch = data & 1;
+                /* MBC3   Latch RTC */
+                if (rtc_flag) {
+                    Cartridge_MBC3_RAM* ram = dynamic_cast<Cartridge_MBC3_RAM*>(_ram);
+                    ram->latch(data);
+                }
                 break;
         }
     }
@@ -84,7 +213,7 @@ public:
  *
  */
 class Cartridge_MBC3 : public Cartridge_ROM {
-    Cartridge_bank  *_rom_bank;
+    Cartridge_MBC3_bank  *_rom_bank;
 
 public:
     Cartridge_MBC3(Memory *mem, uint8_t *data, size_t size, bool color) :
@@ -101,17 +230,7 @@ public:
          delete _rom_bank;
     }
 
-    /**
-     * @brief Pass pointer to Caridge RAM so ROM can enable and select banks.
-     *
-     * Gives pointer to Cartrige RAM, this is passed to the Bank ROM.
-     *
-     * @param ram Pointer to Cartridge RAM.
-     */
-    virtual void set_ram(Cartridge_RAM *ram) override {
-         _ram = ram;
-         _rom_bank->set_ram(ram);
-    }
+    virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size) override;
 
     /**
      * @brief Map Cartridge into Memory space.
@@ -121,11 +240,12 @@ public:
      * the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
+        _rom_bank->set_ram(_ram);
         /* Map ourselves in place */
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);
         _mem->add_slice_sz(&_empty, 0xa000, 32);
-        disable_rom(_rom_disable);
+        disable_rom(0);
     }
 
     /**
@@ -169,4 +289,5 @@ public:
      * @return Always return 16K pages.
      */
     virtual size_t size() const override { return 64; }
+
 };

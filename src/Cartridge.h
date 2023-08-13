@@ -76,13 +76,20 @@ public:
      * @param data Pointer to data to access.
      * @param size Size of data in bytes.
      */
-    explicit Cartridge_RAM(uint8_t *data, size_t size) :
-                 _bank(0), _need_delete(false) {
-        _data = data;
+    explicit Cartridge_RAM(uint8_t *data, size_t size) : _bank(0) {
+        if (data == NULL) {
+            _data = new uint8_t [size];
+            _need_delete = true;
+        } else {
+            _data = data;
+            _need_delete = false;
+        }
         _mask = 0x1fff;
         _size = size;
         _bank_mask = (size - 1) & 0xffe000;
     }
+
+    explicit Cartridge_RAM() : _bank(0), _bank_mask(0), _need_delete(false) {}
 
     /**
      * @brief Destructor for Cartridge RAM.
@@ -151,22 +158,13 @@ public:
      virtual int bus() const override { return 0; }
 
     /**
-     * @brief Return size of RAM in bytes.
-     *
-     * @return number of bytes in RAM space.
-     */
-    virtual size_t size_bytes() {
-        return _size;
-    }
-
-    /**
      * @brief Set bank of memory to access.
      *
      * Sets the bank to the given value. The bank is shifted
      * to be a multiple of 8192 bytes.
      * @param bank address of base of existing ram.
      */
-    void set_bank(uint32_t bank) {
+    virtual void set_bank(uint32_t bank) {
         _bank = bank & _bank_mask;
     }
 
@@ -175,9 +173,27 @@ public:
      *
      * @return pointer to ram data.
      */
-    uint8_t *ram_data() const {
+    virtual uint8_t *ram_data() {
            return _data;
     }
+
+    /**
+     * @brief Return RAM size of RAM in bytes.
+     *
+     * @return size of RAM in bytes.
+     */
+    virtual size_t ram_size() {
+           return _size;
+    }
+
+    /**
+     * @brief 1 second tick from Timer.
+     *
+     * Generally nothing to do.
+     */
+    virtual void tick() {
+    }
+
 };
 
 /**
@@ -354,24 +370,27 @@ public:
     Cartridge_ROM& operator=(Cartridge_ROM &) = delete;
 
     /**
-     * @brief Sets pointer to RAM object.
+     * @brief Sets up Cartridge RAM object.
      *
      * Bank controller needs to know this since RAM bank selection
      * is typically done in the address range of the BANK.
      *
-     * @param ram  Pointer to Cartridge RAM object.
+     * @param type Type bits for Cartridge.
+     * @param ram_data Pointer to saved data.
+     * @param ram_size Size of saved data.
+     * @return Pointer to Cartridge RAM object.
      */
-    virtual void set_ram(Cartridge_RAM *ram) {
-         _ram = ram;
-    }
+    virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size);
 
     virtual void map_cart() {
         /* Map ourselves in place */
         _mem->add_slice(this, 0);
+        /* If we have RAM it will be enabled. */
         if (_ram) {
             _mem->add_slice(_ram, 0xa000);
         }
-        disable_rom(_rom_disable);
+        /* Initially the ROM is Enabled */
+        disable_rom(0);
     }
 
     /**
@@ -431,6 +450,17 @@ public:
      virtual int bus() const override { return 0; }
 
     /**
+     * @brief 1 second tick from Timer.
+     *
+     * Pass it on to RAM device.
+     */
+    virtual void tick() {
+        if (_ram) {
+           _ram->tick();
+        }
+    }
+
+    /**
      * @brief Hooked to I/O page to control Boot ROM access.
      *
      * When CPU access 0xff50, this routine is called to enable
@@ -470,6 +500,29 @@ enum Cart_type {
  * Created before the CPU is created, this object holds the current
  * ROM and RAM of the cartridge.
  *
+ * At startup a Cartridge object is created. main() creates a byte array
+ * that will hold the full ROM, it passes this to the Cartridge object with
+ * a call to load_rom(). If a save file exists, it is also loaded and given
+ * to the Cartridge object with the call load_ram().
+ *
+ * The cartridge Object is then passed to the CPU object. When it has created
+ * the Memory object to hold access to memory, it passes the object pointer to
+ * Cartridge so that it can map itself into place. When the Cartridge recieves
+ * the Memory pointer it examines the header of the Cartridge and creates a
+ * specific type of Cartridge object that knows how to manage the specific
+ * bank switching which is used by the cartridge.
+ *
+ * Next the Cartridge ROM object is given the type of ROM, and the loaded RAM
+ * data if any via the set_ram function. This will create the specific type of
+ * RAM used by the device and return either a pointer to it or NULL if there
+ * is no RAM.
+ *
+ * The last thing that is done is calling the ROM's map_cart() function which will
+ * map the ROM and RAM into Memory space.
+ *
+ * The Cartridge object is not used again until the main() routine asks if there
+ * is any RAM data to save to a file.
+ *
  */
 class Cartridge {
     Cartridge_ROM  *_rom;      /**< Pointer to base object of ROM */
@@ -481,16 +534,17 @@ class Cartridge {
     size_t          _ram_size; /**< Size of RAM data */
     bool            _color;    /**< Color game boy flag */
 
-public:
-    explicit Cartridge(bool color) : _rom(NULL), _ram(NULL), _mem(NULL),
-           _data(NULL), _size(0), _ram_data(NULL), _ram_size(0), _color(color) {}
+    bool header_checksum(int bank);
 
-    ~Cartridge() {
+public:
+    explicit Cartridge(uint8_t *rom_data, size_t size, bool color) :
+           _rom(NULL), _ram(NULL), _mem(NULL),
+           _data(rom_data), _size(size), _ram_data(NULL), _ram_size(0), _color(color) {}
+
+    virtual ~Cartridge() {
         delete _rom;
         delete _ram;
     }
-
-    void set_ram();
 
     void load_ram(uint8_t *data, size_t size);
 
@@ -505,14 +559,14 @@ public:
     }
 
     size_t ram_size() const {
-         return _ram_size;
+         if (_ram) {
+             return _ram->ram_size();
+         } else {
+             return 0;
+         }
     }
 
-    void set_rom(uint8_t *data, size_t size);
-
     void set_mem(Memory *mem);
-
-    bool header_checksum(int bank);
 
     void disable_rom(uint8_t data) {
          if (_rom != NULL) {
@@ -521,6 +575,15 @@ public:
          if (_mem != NULL) {
              _mem->set_disable(data);
          }
+    }
+
+    /**
+     * @brief 1 second tick from Timer.
+     *
+     * Pass 1 second clock to ROM to do as it wishes.
+     */
+    virtual void tick() {
+         _rom->tick();
     }
 };
 
@@ -585,5 +648,6 @@ public:
      virtual int reg_size() const override {
          return 1;
      }
+
 } ;
 

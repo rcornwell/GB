@@ -29,6 +29,7 @@
 #include <cstdint>
 #include "Device.h"
 #include "Apu.h"
+#include "Cartridge.h"
 
 /**
  * @brief Interval timer object.
@@ -44,6 +45,8 @@ class Timer : public Device {
      Apu        *_apu;              /**< Apu since timer needs to
                                          be able to give clocks to
                                          the APU */
+     Cartridge  *_cart;             /**< Send cartridge a 1hz signal */
+     int32_t     _sec_time;         /**< Second count down */
      bool        _speed;            /**< Running at double speed */
      uint16_t    _apu_mask;         /**< Mask for APU bit to monitor */
 
@@ -53,12 +56,13 @@ class Timer : public Device {
      };
 
 public:
-     Timer() : _apu(NULL) {
+     Timer() : _apu(NULL), _cart(NULL) {
         _tima = _tma = _tac = 0;
         _time_over = false;
         _div = 8;
         _speed = false;
         _apu_mask = 0x1000;
+        _sec_time = 2 * 1024 * 1024;
      }
 
      /**
@@ -86,6 +90,15 @@ public:
       */
      void set_apu(Apu *apu) {
           _apu = apu;
+     }
+
+     /**
+      * @brief Connect to Cartridge to provide 1 second ticks if needed.
+      *
+      * Give the cartridge a 1 second clock.
+      */
+     void set_cart(Cartridge *cart) {
+          _cart = cart;
      }
 
      /**
@@ -129,6 +142,12 @@ public:
           /* Update sound state 512 times per second */
           if (_apu != NULL && prev_snd != 0 && (_div & _apu_mask) == 0) {
               _apu->cycle_sound();
+          }
+          /* Update second clock, decrement by -1 or -2 depending on speed setting. */
+          _sec_time -= 1 + !_speed;
+          if (_sec_time <= 0) {
+             _sec_time += 2 * 1024 * 1024;
+             _cart->tick();
           }
      }
 

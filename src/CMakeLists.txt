@@ -24,7 +24,7 @@
 
 set(GB_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 ## Use all the *.cpp files we found under this folder for the project
-FILE(GLOB GB_SRCS Apu.cpp Cpu.cpp ROM.cpp Memory.cpp Ppu.cpp Cartridge.cpp)
+FILE(GLOB GB_SRCS Apu.cpp Cartridge.cpp Cpu.cpp Memory.cpp MBC3.cpp Ppu.cpp ROM.cpp)
 target_sources(${PROJECT_NAME} PUBLIC main.cpp ${GB_SRCS})
 
 if (RUN_TESTS)

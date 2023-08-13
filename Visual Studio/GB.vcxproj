@@ -162,6 +162,7 @@
     <ClCompile Include="..\src\Cartridge.cpp" />
     <ClCompile Include="..\src\Cpu.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\MBC3.cpp" />
     <ClCompile Include="..\src\Memory.cpp" />
     <ClCompile Include="..\src\Ppu.cpp" />
     <ClCompile Include="..\src\ROM.cpp" />
