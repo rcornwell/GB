@@ -101,7 +101,7 @@ public:
     Cartridge_MMM01_bank(uint8_t *data, size_t size) :
            Cartridge_bank(data, size) , _mode(false), _mapped(false), _mode_lock(false),
                        _multiplex(false) {
-        _rom_bank_mask = 0x7800;
+        _rom_bank_mask = 0;
         _rom_bank_low = 0;
         _rom_bank_mid = 0;
         _rom_bank_high = 0;
@@ -174,7 +174,7 @@ public:
                  * 16/8  0-3      select high ROM address */
                 if (!_mapped) {
                     _ram_bank_high = ((uint32_t)(data) & 0xc) << 13;
-                    _rom_bank_high = ((uint32_t)(data) & 0x30) << 17;
+                    _rom_bank_high = ((uint32_t)(data) & 0x30) << 19;
                     _ram_bank = (0x18000 & _ram_bank_high) | (0x06000 & _ram_bank);
                     if (_ram) {
                         _ram->set_bank(_ram_bank);
@@ -277,6 +277,7 @@ public:
        Cartridge_ROM(mem, data, size, color), _mapped(false) {
         _rom_bank = new Cartridge_MMM01_bank(data, size);
         _top_bank = size - (32 * 1024);
+//        _bank = _top_bank;
         _rom_bank_mid = 0;
         _rom_bank_low = 0;
         std::cout << "MMM01" << std::endl;
@@ -291,18 +292,6 @@ public:
     }
 
     /**
-     * @brief Pass pointer to Caridge RAM so ROM can enable and select banks.
-     *
-     * Gives pointer to Cartrige RAM, this is passed to the Bank ROM.
-     *
-     * @param ram Pointer to Cartridge RAM.
-     */
-    virtual void set_ram(Cartridge_RAM *ram) override {
-         _ram = ram;
-         _rom_bank->set_ram(ram);
-    }
-
-    /**
      * @brief Map Cartridge into Memory space.
      *
      * Map Cartridge ROM and RAM objects into memory space. Initially the RAM
@@ -310,6 +299,7 @@ public:
      * the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
+         _rom_bank->set_ram(_ram);
         /* Map ourselves in place */
         _mem->add_slice(this, 0);
         _mem->add_slice(_rom_bank, 0x4000);
@@ -354,8 +344,6 @@ public:
         case 0:          /* 0x0000 - 0x1fff */
                 /* MMM01    enable ram. */
                 /*       0xa    - enable. else disable */
-                if (_ram == NULL)
-                    return;
                 if (!_mapped) {
                     _rom_bank->_ram_bank_mask = ((data >> 4) & 0x3) << 13;
                     if ((data & 0x40) != 0) {
@@ -363,6 +351,8 @@ public:
                         _rom_bank->set_mapped();
                     }
                 }
+                if (_ram == NULL)
+                    return;
                 if ((data & 0xf) == 0xa) {
                    _mem->add_slice(_ram, 0xa000);
                 } else {
@@ -372,6 +362,10 @@ public:
         case 1:          /* 0x2000 - 0x3fff */
                 /* MMM01   select memory bank */
                 /*       0 - 7F   bank for 0x4000-0x7fff */
+                if (!_mapped) {
+                    _rom_bank_mid = ((uint32_t)(data & 0x60)) << 14;
+                    _rom_bank->_rom_bank_mid = _rom_bank_mid;
+                }
                 new_bank = ((uint32_t)(data & 0x1f)) << 14;
                 new_bank = (_rom_bank_low & _rom_bank->_rom_bank_mask) |
                            (new_bank & ~_rom_bank->_rom_bank_mask);
@@ -380,14 +374,50 @@ public:
                                 (0x4000 & ~_rom_bank->_rom_bank_mask);
                 }
                 _rom_bank_low = new_bank;
-                if (!_mapped) {
-                    _rom_bank_mid = ((uint32_t)(data & 0x60)) << 14;
-                }
                 _rom_bank->_rom_bank_low = _rom_bank_low;
-                _rom_bank->_rom_bank_mid = _rom_bank_mid;
                 break;
          }
     }
+
+/**
+ * @brief Setup RAM for Cartridge.
+ *
+ * Use values in ROM to allocate space for on Cartridge RAM.
+ * If there is already RAM make sure it is same size as
+ * cartridge defined RAM.
+ */
+virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size)  override {
+#define K  1024
+     size_t     sze;
+
+     /* Compute size of RAM based on ROM data */
+     switch (_data[_top_bank + 0x149]) {
+     default:
+     case 0:    sze = 0; break;
+     case 1:    sze = 2*K; break;
+     case 2:    sze = 8*K; break;
+     case 3:    sze = 32*K; break;
+     case 4:    sze = 128*K; break;
+     }
+
+     std::cout << "MMM01 Ram: " << std::dec << (int)sze << std::endl;
+     /* If size of RAM is zero, just return. */
+     if (sze == 0) {
+         return _ram;
+     }
+     /* If we already have RAM data, try and use it */
+     if (ram_data != NULL) {
+         if (sze != ram_size) {
+             std::cerr << "Invalid Save file size: " << ram_size <<
+               " Cartridge says: " << sze << std::endl;
+             exit(1);
+         }
+         _ram = new Cartridge_RAM(ram_data, ram_size);
+     } else {
+         _ram = new Cartridge_RAM(sze);
+     }
+     return _ram;
+}
 
     /**
      * @brief Size of non-bank selection area.
