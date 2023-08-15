@@ -82,7 +82,7 @@ public:
        Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_MBC5_bank(data, size);
         _bank = 0;
-       std::cout << "MBC5 Cartridge " << (int)size << " " << std::endl;
+       std::cout << "MBC5 Cartridge " << (int)size;
     }
 
     Cartridge_MBC5(const Cartridge_MBC5 &) = delete;

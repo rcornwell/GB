@@ -87,28 +87,22 @@ class Cartridge_MMM01_bank : public Cartridge_bank {
     bool       _mode;          /**< Cartridge addressing mode */
     bool       _mapped;        /**< Cartridge is in mapped mode */
     bool       _mode_lock;     /**< Prevent change of Mode bit */
-public:
     bool       _multiplex;     /**< Cartridge is in multiplexed mode */
-    uint32_t   _top_bank;      /**< Top bank of ROM */
-    uint32_t   _rom_bank_mask; /**< Bank masking */
-    uint32_t   _rom_bank_high; /**< High order 2 bits of ROM bank */
-    uint32_t   _rom_bank_mid;  /**< Middle 2 bits of ROM Bank */
-    uint32_t   _rom_bank_low;  /**< Lower 5 bits of ROM Bank */
-    uint32_t   _ram_bank_high; /**< High order RAM bank select */
-    uint32_t   _ram_bank_low;  /**< Copy of RAM Lower bank */
-    uint32_t   _ram_bank_mask;
+public:
+    uint32_t   top_bank;       /**< Top bank of ROM */
+    uint32_t   rom_bank_reg;   /**< Current ROM Bank register */
+    uint32_t   rom_bank_mask;  /**< Bank masking */
+    uint32_t   ram_bank_reg;   /**< Current RAM Bank register */
+    uint32_t   ram_bank_mask;  /**< Mask of which bits can be changed */
 
     Cartridge_MMM01_bank(uint8_t *data, size_t size) :
            Cartridge_bank(data, size) , _mode(false), _mapped(false), _mode_lock(false),
                        _multiplex(false) {
-        _rom_bank_mask = 0;
-        _rom_bank_low = 0;
-        _rom_bank_mid = 0;
-        _rom_bank_high = 0;
-        _ram_bank_low = 0;
-        _ram_bank_high = 0;
-        _ram_bank_mask = 0;
-        _top_bank = size - (32 * 1024);
+        rom_bank_reg = 0;
+        rom_bank_mask = 0;
+        ram_bank_reg = 0;
+        ram_bank_mask = 0x38 << 14;
+        top_bank = size - (32 * 1024);
     }
 
     Cartridge_MMM01_bank(const Cartridge_MMM01_bank &) = delete;
@@ -145,15 +139,11 @@ public:
     virtual void read(uint8_t &data, uint16_t addr) const override {
         uint32_t bank;
         if (_mapped) {
-            if (_multiplex) {
-                bank = _rom_bank_high | (_ram_bank_low << 6) | _rom_bank_low;
-            } else {
-                bank = _rom_bank_high | _rom_bank_mid | _rom_bank_low;
-            }
+            bank = _bank;
         } else {
-            bank = _top_bank | 0x4000;
+            bank = top_bank | 0x4000;
         }
-        data = _data[bank | (addr & 0x3fff)];
+        data = _data[(bank | (addr & 0x3fff)) & _mask];
     }
 
     /**
@@ -165,7 +155,8 @@ public:
      * @param addr Address to write to.
      */
     virtual void write(uint8_t data, uint16_t addr) override {
-        uint32_t   new_rom_bank;
+        uint32_t   new_bank;
+        uint32_t   new_ram_bank;
         /* Preform bank switching */
         switch (addr >> 13) {
         case 2:          /* 0x4000 - 0x5fff */
@@ -173,27 +164,26 @@ public:
                 /*  4/32 0-3      bank for 0xa000-0xbfff
                  * 16/8  0-3      select high ROM address */
                 if (!_mapped) {
-                    _ram_bank_high = ((uint32_t)(data) & 0xc) << 13;
-                    _rom_bank_high = ((uint32_t)(data) & 0x30) << 19;
-                    _ram_bank = (0x18000 & _ram_bank_high) | (0x06000 & _ram_bank);
-                    if (_ram) {
-                        _ram->set_bank(_ram_bank);
-                    }
+                    ram_bank_reg = (uint32_t)(data & 0xf) << 13;
                     _mode_lock = ((data & 0x40) != 0);
-                }
-                _ram_bank_low = ((uint32_t)(data & 3)) << 13;
-                new_rom_bank = ((uint32_t)(data & 0x3)) << 19;
-                new_rom_bank |= (_bank & 0x7c000) | _rom_bank_high;
-                _bank = new_rom_bank & _mask;
-                if (_mode) {
-                     _ram_bank = (0x18000 & _ram_bank) | (0x06000 & _ram_bank_low);
                 } else {
-                     _ram_bank = (0x18000 & _ram_bank) | 
-                                        (0x06000 & ((_ram_bank_low & ~_ram_bank_mask) |
-                                                    (_ram_bank & _ram_bank_mask)));
+                    new_bank = (uint32_t)(data & 0x3) << 13;
+                    ram_bank_reg = (ram_bank_reg & ram_bank_mask) |
+                                     (new_bank & (~ram_bank_mask));
                 }
+                /* Always set RAM Bank */
+                if (_multiplex) {
+                    new_ram_bank = ((rom_bank_reg >> 5) & 0x6000) |
+                                     (ram_bank_reg & 0x18000);
+                    new_bank = (ram_bank_reg & 3) << 6;
+                    new_bank |= (rom_bank_reg & 0x33e000);
+                } else {
+                   new_ram_bank = ram_bank_reg;
+                   new_bank = rom_bank_reg;
+                }
+                set_bank(new_bank & _mask);
                 if (_ram) {
-                    _ram->set_bank(_ram_bank);
+                    _ram->set_bank(new_ram_bank);
                 }
                 break;
         case 3:          /* 0x6000 - 0x7fff */
@@ -206,7 +196,8 @@ public:
 
                 /* Can only be changed in unmapped mode */
                 if (!_mapped) {
-                    _rom_bank_mask = (data & 0x3c) << 14;
+                    /* Set Mid and High bits to be unchangable */
+                    rom_bank_mask = (0x3c0 | (data & 0x3c)) << 14;
                     _multiplex = (data & 0x40) != 0;
                 }
                 /* If locked out can't change mode */
@@ -214,8 +205,14 @@ public:
                     _mode = data & 1;
                 }
                 /* Always set RAM Bank */
+                if (_multiplex) {
+                   new_ram_bank = ((rom_bank_reg >> 5) & 0x6000) |
+                                     (ram_bank_reg & 0x18000);
+                } else {
+                   new_ram_bank = ram_bank_reg;
+                }
                 if (_ram) {
-                   _ram->set_bank(_ram_bank);
+                   _ram->set_bank(new_ram_bank);
                 }
                 break;
         }
@@ -268,19 +265,14 @@ public:
 class Cartridge_MMM01 : public Cartridge_ROM {
     Cartridge_MMM01_bank  *_rom_bank;        /**< Holds Banking object. */
     bool                  _mapped;           /**< Mapped mode */
-    uint32_t              _rom_bank_mid;     /**< Middle ROM bank value */
-    uint32_t              _rom_bank_low;     /**< Low order ROM bank */
-    uint32_t              _top_bank;         /**< Top bank of ROM */
+    uint32_t              _mask;             /**< Mask for rom addresses */
 
 public:
     Cartridge_MMM01(Memory *mem, uint8_t *data, size_t size, bool color) :
        Cartridge_ROM(mem, data, size, color), _mapped(false) {
         _rom_bank = new Cartridge_MMM01_bank(data, size);
-        _top_bank = size - (32 * 1024);
-//        _bank = _top_bank;
-        _rom_bank_mid = 0;
-        _rom_bank_low = 0;
-        std::cout << "MMM01" << std::endl;
+        _mask = (size - 1);
+        std::cout << "MMM01";
     }
 
     Cartridge_MMM01(const Cartridge_MMM01 &) = delete;
@@ -317,17 +309,13 @@ public:
      * @param[in] addr Address to read from.
      */
     virtual void read(uint8_t &data, uint16_t addr) const override {
+       uint32_t bank;
        if (_mapped) {
-           uint32_t bank;
-           if (_rom_bank->_multiplex) {
-               bank = _rom_bank->_rom_bank_high | (_rom_bank->_ram_bank_low << 6) | _rom_bank_low;
-           } else {
-               bank = _rom_bank->_rom_bank_high | _rom_bank_mid | _rom_bank_low;
-           }
-           data = _data[bank | (addr & 0x3fff)];
+           bank = _rom_bank->get_bank() & _rom_bank->rom_bank_mask;
        } else {
-           data = _data[_top_bank | (addr & 0x3fff)];
+           bank = _rom_bank->top_bank;
        }
+       data = _data[(bank | (addr & 0x3fff)) & _mask];
     }
 
     /**
@@ -345,7 +333,7 @@ public:
                 /* MMM01    enable ram. */
                 /*       0xa    - enable. else disable */
                 if (!_mapped) {
-                    _rom_bank->_ram_bank_mask = ((data >> 4) & 0x3) << 13;
+                    _rom_bank->ram_bank_mask = (0xc | ((data >> 4) & 0x3)) << 14;
                     if ((data & 0x40) != 0) {
                         _mapped = true;
                         _rom_bank->set_mapped();
@@ -361,20 +349,28 @@ public:
                 break;
         case 1:          /* 0x2000 - 0x3fff */
                 /* MMM01   select memory bank */
+                /* Bank mid = 0x60, Low = 0x1f */
+                /* mask = 0x38 */
+                /* Rom high = 0x70 mbc1 disable, High = 30, Ram = 0 */
                 /*       0 - 7F   bank for 0x4000-0x7fff */
                 if (!_mapped) {
-                    _rom_bank_mid = ((uint32_t)(data & 0x60)) << 14;
-                    _rom_bank->_rom_bank_mid = _rom_bank_mid;
+                    new_bank = ((uint32_t)(data & 0x7f)) << 14;
+                    if ((data & 0x1f) == 0) {
+                        new_bank |= 0x4000;
+                    }
+                    /* Merge current high order bits with new bits */
+                    new_bank = (_rom_bank->rom_bank_reg & 0x600000) |
+                                              (new_bank & 0x1fc000);
+                } else {
+                    new_bank = ((uint32_t)(data & 0x1f)) << 14;
+                    if (new_bank == 0) {
+                        new_bank = 0x4000;
+                    }
+                    new_bank = (_rom_bank->rom_bank_reg & _rom_bank->rom_bank_mask) |
+                                (new_bank & (~_rom_bank->rom_bank_mask));
                 }
-                new_bank = ((uint32_t)(data & 0x1f)) << 14;
-                new_bank = (_rom_bank_low & _rom_bank->_rom_bank_mask) |
-                           (new_bank & ~_rom_bank->_rom_bank_mask);
-                if ((new_bank & ~_rom_bank->_rom_bank_mask) == 0) {
-                     new_bank = (_rom_bank_low & _rom_bank->_rom_bank_mask) |
-                                (0x4000 & ~_rom_bank->_rom_bank_mask);
-                }
-                _rom_bank_low = new_bank;
-                _rom_bank->_rom_bank_low = _rom_bank_low;
+                _rom_bank->rom_bank_reg = new_bank;
+                _rom_bank->set_bank(new_bank);
                 break;
          }
     }
@@ -391,7 +387,7 @@ virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size)  ov
      size_t     sze;
 
      /* Compute size of RAM based on ROM data */
-     switch (_data[_top_bank + 0x149]) {
+     switch (_data[_rom_bank->top_bank + 0x149]) {
      default:
      case 0:    sze = 0; break;
      case 1:    sze = 2*K; break;
@@ -400,7 +396,7 @@ virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size)  ov
      case 4:    sze = 128*K; break;
      }
 
-     std::cout << "MMM01 Ram: " << std::dec << (int)sze << std::endl;
+     std::cout << " Ram: " << std::dec << (int)sze << std::endl;
      /* If size of RAM is zero, just return. */
      if (sze == 0) {
          return _ram;

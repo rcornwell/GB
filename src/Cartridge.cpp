@@ -173,15 +173,21 @@ void Cartridge::set_mem(Memory *mem) {
      if (type & TIM) {
         std::cout << " Timer";
      }
-     std::cout << std::endl;
      _mem = mem;
+     std::cout << " ";
      if (_type > (sizeof(rom_type)/sizeof(int))) {
          _rom = new Cartridge_ROM(_mem, _data, _size, _color);
      } else {
          /* Special check for MMM01 cartridge */
          if ((type & 0xf) == MBC1 && _size > (64 * 1024)) {
+             int type2 = type;
              if (header_checksum((_size / (32 * 1024) - 1))) {
                  type = rom_type[_data[0x147 + (_size - (32 * 1024))] & 0x1f];
+                 std::cout << "Type2 " << std::hex << type << " ";
+             }
+             /* If new type is generic ROM, keep old data. */
+             if ((type & 0xf) == 0) {
+                 type = type2;
              }
          }
 
@@ -210,6 +216,7 @@ void Cartridge::set_mem(Memory *mem) {
         _ram = _rom->set_ram(type, _ram_data, _ram_size);
 
      }
+     std::cout << std::endl;
 
      /* Map the cartridge into Memory. */
      _rom->map_cart();

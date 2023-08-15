@@ -219,7 +219,7 @@ public:
     Cartridge_MBC3(Memory *mem, uint8_t *data, size_t size, bool color) :
        Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_MBC3_bank(data, size);
-       std::cout << "MBC3 Cartridge" << std::endl;
+       std::cout << "MBC3 Cartridge";
     }
 
     Cartridge_MBC3(const Cartridge_MBC3 &) = delete;

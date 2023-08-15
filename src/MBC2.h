@@ -99,7 +99,7 @@ public:
     Cartridge_MBC2(Memory *mem, uint8_t *data, size_t size, bool color) :
         Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_bank(data, size);
-       std::cout << "MBC2 Cartridge" << std::endl;
+       std::cout << "MBC2 Cartridge";
     }
 
     Cartridge_MBC2(const Cartridge_MBC2 &) = delete;

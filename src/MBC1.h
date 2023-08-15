@@ -163,10 +163,10 @@ public:
           _mbc1m = false;
        }
        if (_mbc1m) {
-           std::cout << "MBC1M Cartridge" << std::endl;
+           std::cout << "MBC1M Cartridge";
            _rom_bank->set_mbc1m();
        } else {
-           std::cout << "MBC1 Cartridge" << std::endl;
+           std::cout << "MBC1 Cartridge";
        }
     }
 
