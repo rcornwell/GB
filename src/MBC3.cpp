@@ -27,7 +27,6 @@
 #include <cstdint>
 #include <ctime>
 #include <functional>
-#include <endian.h>
 #include "signal.h"
 
 #include "Cartridge.h"
@@ -40,6 +39,43 @@
 #define RTC_DH     16
 #define RTC_LATCH  20
 #define RTC_TIME   40
+
+/**
+ * @brief Load a 64 bit little endian number from data.
+ *
+ * @param p[in] Pointer to little endian data in memory.
+ * @param x[out] 64 bit integer.
+ */
+
+static inline void load64_int(const uint8_t* p, uint64_t &x) {
+    x = (uint64_t(p[7]) << 8*0) |
+        (uint64_t(p[6]) << 8*1) |
+        (uint64_t(p[5]) << 8*2) |
+        (uint64_t(p[4]) << 8*3) |
+        (uint64_t(p[3]) << 8*4) |
+        (uint64_t(p[2]) << 8*5) |
+        (uint64_t(p[1]) << 8*6) |
+        (uint64_t(p[0]) << 8*7);
+}
+
+/**
+ * @brief Store a 64 bit number as a little endian byte array.
+ *
+ * @param p[out] Pointer to were to store number.
+ * @param x[in] 64 bit integer.
+ */
+static inline void store64_int(uint8_t *p, const uint64_t &x) {
+    p[0] = x >> 8*0;
+    p[1] = x >> 8*1;
+    p[2] = x >> 8*2;
+    p[3] = x >> 8*3;
+    p[4] = x >> 8*4;
+    p[5] = x >> 8*5;
+    p[6] = x >> 8*6;
+    p[7] = x >> 8*7;
+}
+
+
 
 /**
  * @brief Routine to read from memory.
@@ -130,10 +166,9 @@ void Cartridge_MBC3_RAM::write(uint8_t data, uint16_t addr) {
 }
 
 uint8_t *Cartridge_MBC3_RAM::ram_data() {
-    uint64_t     *t = (uint64_t *)&_data[_rtc_base + RTC_TIME];
     time_t       _time = time(NULL);
 
-    *t = htole64((uint64_t)_time);
+    store64_int(&_data[_rtc_base + RTC_TIME], (uint64_t)_time);
     return _data;
 }
 
@@ -176,8 +211,8 @@ void Cartridge_MBC3_RAM::tick() {
 }
 
 void Cartridge_MBC3_RAM::update_time() {
-    uint64_t     *t = (uint64_t *)&_data[_rtc_base + RTC_TIME];
     time_t       _time = time(NULL);
+    uint64_t     _ot;
     time_t       _oldtime;
     uint8_t      vf;
     uint8_t      v;
@@ -188,7 +223,8 @@ void Cartridge_MBC3_RAM::update_time() {
         return;
     }
 
-    _oldtime = le64toh(*t);
+    load64_int(&_data[_rtc_base + RTC_TIME], _ot);
+    _oldtime = (time_t)_ot;
     double seconds = difftime(_time, _oldtime);
     /* Advance by days until less than day remaining */
     while(seconds > 86400.0f) {
@@ -254,7 +290,7 @@ void Cartridge_MBC3_RAM::advance_day() {
  */
 Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_size) {
 #define K  1024
-     Cartridge_MBC3_RAM  *mbc_ram;
+     Cartridge_MBC3_RAM  *mbc_ram = NULL;
      size_t     size;
 
      /* Compute size of RAM based on ROM data */
@@ -313,7 +349,7 @@ Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_s
      }
 
      if ((type & TIM) != 0) {
-         if (ram_data != NULL) {
+         if (mbc_ram != NULL) {
              mbc_ram->update_time();
          }
      }

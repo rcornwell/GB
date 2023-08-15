@@ -33,7 +33,12 @@
 #endif
 #include <SDL_mixer.h>
 
+#ifndef _WIN32
 #include "config.h"
+#else
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 1
+#endif
 #include "System.h"
 #include "Cpu.h"
 #include "Joypad.h"
