@@ -314,36 +314,6 @@ void Ppu::dot_cycle() {
               LX++;
               if (_dot_clock == 444) {
                   LY++;
-                  if (LY < 144) {
-                  /* interrupt if we want to know mode switch */
-//enter_mode2();
-//                  if (STAT & MODE_2_IRQ) {
- //                    /* Set IF Bit 1 */
-  //                   if (_irq_flg) {
-   //                      *_irq_flg |= 0x2;
-    //                 }
-//                  }
-                   }
-//                  if (LY == LYC && (STAT & STAT_LYC_IRQ)) {
- //                    /* Set IF bit 1 */
-  //                   if (_irq_flg) {
-   //                      *_irq_flg |= 0x2;
-    //                 }
-     //             }
-                  if (LY >= 144) {
-//enter_mode1();
-//                  /* Generate VBlank interrupts */
- //                 if (STAT & MODE_1_IRQ) {
-  //                   /* Set IF bit 1 */
-   //                  if (_irq_flg) {
-    //                     *_irq_flg |= 0x2;
-     //                }
-      //            }
-       //           if (_irq_flg) {
-        //              *_irq_flg |= 0x1;
-//if (trace_flag) printf("Vblank\n");
-         //         }
-                  }
 //if (trace_flag) printf("LY %d LYC %d %02x\n", LY, LYC, STAT);
               }
               if (_dot_clock >= 456) {
@@ -374,17 +344,6 @@ void Ppu::dot_cycle() {
               /* Wait until line finished */
               if (_dot_clock == 444) {
                   LY++;
-//                  /* Process line counter interrupt */
-//                  if (LY >= 154) {
-// enter_mode2();
-                      /* interrupt if we want to know mode switch */
-//                      if (STAT & MODE_2_IRQ) {
- //                        /* Set IF Bit 1 */
-  //                       if (_irq_flg) {
-   //                          *_irq_flg |= 0x2;
-    //                     }
-     //                 }
- //                 }
 //if (trace_flag) printf("LY %d LYC %d %02x\n", LY, LYC, STAT);
               }
               if (_dot_clock >= 456) {
