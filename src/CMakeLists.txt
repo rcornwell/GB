@@ -39,10 +39,10 @@ if(MSVC)
 endif()
 target_link_libraries(gb_test ${CPPUTEST_LDFLAGS})
 #add_custom_target(gb_test COMMAND gb_test)
-#add_custom_command(TARGET gb_test POST_BUILD
-#	COMMAND gb_test
-#	WORKING_DIRECTORY ${GB_PATH}/test
-#	COMMENT "Running gb test" VERBATIM)
+add_custom_command(TARGET gb_test POST_BUILD
+	COMMAND gb_test
+	WORKING_DIRECTORY ${GB_PATH}/test
+	COMMENT "Running gb test" VERBATIM)
 endif()
 
 
