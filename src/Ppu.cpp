@@ -464,6 +464,7 @@ void Ppu::fill_pix(int tile, int row) {
  * Pixel and Object fifo are shifted left one pixel. Transparent
  * pixels are loaded in last location. Pixel count is decremented by
  * one.
+ *
  */
 void Ppu::shift_fifo() {
     int i;
@@ -536,7 +537,11 @@ void Ppu::display_start() {
 
    /* Adjust the tile to start of X */
    while (LX > 0) {
-       shift_fifo();
+       for (i = 0; i < 7; i++) {
+            _pix_fifo[i] = _pix_fifo[i+1];
+       }
+       _pix_fifo[7] = 0;
+       _pix_count--;
        LX--;
    }
    init_screen();
