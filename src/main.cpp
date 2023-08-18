@@ -32,6 +32,7 @@
 #include <SDL_main.h>
 #endif
 #include <SDL_mixer.h>
+#include <SDL_image.h>
 
 #ifndef _WIN32
 #include "config.h"
@@ -43,6 +44,8 @@
 #include "Cpu.h"
 #include "Joypad.h"
 #include "Cartridge.h"
+const
+#include "icon.xpm"
 
 /**
  * @brief Main interface between emulator and SDL.
@@ -54,12 +57,12 @@
 using namespace std;
 
 SDL_Window       *window;
+SDL_Surface      *icon;
 SDL_Renderer     *render;
 SDL_Color         palette[128];
 SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
 SDL_AudioSpec     obtained;
-//uint8_t           disp[160][144];
 
 uint8_t           audio_buffer[2048]; /**< Buffer of generated samples */
 int               audio_pos;          /**< Position to write audio samples */
@@ -259,6 +262,10 @@ void init_window()
     window = SDL_CreateWindow("Game Boy", SDL_WINDOWPOS_UNDEFINED,
                                      SDL_WINDOWPOS_UNDEFINED,
                            160*scale, 144*scale, SDL_WINDOW_RESIZABLE );
+    /* Create icon for display */
+    icon = IMG_ReadXPMFromArray((char **)icon_image);
+    SDL_SetWindowIcon(window, icon);
+
     /* Request audio playback */
     request.freq = 32768;
     request.format = AUDIO_U8;
@@ -269,10 +276,6 @@ void init_window()
        std::cerr << "Failed to get audio device" << std::endl;
        exit(1);
     }
-
-//    color[12].r = 0xff;
-//    color[13].g = 0xff;
-//    color[14].b = 0xff;
 }
 
 /**
@@ -297,12 +300,6 @@ draw_screen()
     /* Clear display */
     SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear( render);
-//    for (int i = 0; i < 144; i++) {
-//        for(int j = 0; j < 160; j++) {
-//            printf("%x", disp[i][j]);
-//        }
-//        printf("\n");
-//    }
 }
 
 SDL_Color base_color[4] = {
@@ -363,7 +360,6 @@ draw_pixel(uint8_t pix, int row, int col)
                                     palette[pix].b,
                                     palette[pix].a);
      SDL_RenderFillRect(render, &rect);
-//     disp[row][col] = pix;
 }
 
 /**
@@ -596,7 +592,6 @@ run_sim()
 
        /* Adjust next frame to be correct */
        time_left = frameMS - FRAME_TIME;
-//       printf("Frame %f %f %f\n", frameMS, frameMS - 16.742f, time_left);
     }
 
     /* Clean up house */

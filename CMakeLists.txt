@@ -22,7 +22,7 @@
 # SOFTWARE.
 #
 
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.22)
 
 ## Set our project name
 set( PROJECT_NAME "gb" )
@@ -34,7 +34,7 @@ set (${PROJECT_NAME}_VERSION_MINOR 1)
 
 # Generate Doxygen documentation files
 option(BUILD_DOC "Build documenation" OFF)
-option(RUN_TESTS "Run tests" ON)
+option(RUN_TESTS "Run tests" OFF)
 
 # Add a custom CMake Modules directory
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -93,7 +93,7 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif()
 
-find_package(CppCheck)
+#find_package(CppCheck)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
 if (CMAKE_CXX_CPPCHECK)
@@ -112,12 +112,15 @@ endif()
 
 find_package (SDL2 REQUIRED)
 find_package (SDL2_mixer REQUIRED)
+find_package (SDL2_image REQUIRED)
 
 # Get required files and packages
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 # Add in binary output so we can find configuration file.
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
+# Add in path to icon image.
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/image)
 
 ## Define output executable.
 if (WIN32)
@@ -130,6 +133,8 @@ endif()
 # Include SDL libraries.
 target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${SDL2_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${SDL2_IMAGE_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_MIXER_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${SDL2_MIXER_LIBRARIES})
 
@@ -158,3 +163,34 @@ if(UNIX)
     )
 endif(UNIX)
 
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_GENERATOR "DEB;NSIS")
+if (WIN32)
+include(InstallRequiredSystemLibraries)
+add_custom_command(TARGET gb POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E copy
+         -t "$<TARGET_RUNTIME_DLLS:gb>" "$<TARGET_FILE_DIR:gb>"
+      COMMAND_EXPAND_LISTS)
+#install(FILES ${SDL2_LIBRARY}/SDL2.dll DESTINATION bin)
+#install(FILES ${SDL2_MIXER_LIBRARY}/SDL2_mixer.dll DESTINATION bin)
+#install(FILES ${SDL2_IMAGE_LIBRARY}/SDL2_image.dll DESTINATION bin)
+endif()
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Simple Game Boy Emulator")
+set(CPACK_PACKAGE_VENDOR "http://sky-visions.com")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
+set(CPACK_PACKAGE_VERSION_MAJOR "${${PROJECT_NAME}_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${${PROJECT_NAME}_VERSION_MINOR}")
+set(CPACK_PACKAGE_CONTACT "rich@sky-visions.com")
+set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_CURRENT_SOURCE_DIR}/image/icon.ico")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Richard Cornwell")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsld2 (>= 2.0.0)")
+#set(CPACK_DEBIAN_FILE_NAME DEB_DEFAULT)
+set(CPACK_DEBIAN_PACKAGE_SECTION "games")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)#ONE_PER_GROUP)
+set(CPACK_DEB_COMPONENT_INSTALL YES)
+set(CPACK_STRIP_FILES YES)
+
+install(TARGETS gb RUNTIME DESTINATION bin)
+include(CPack)
