@@ -355,6 +355,8 @@ void Ppu::dot_cycle() {
                      _wrow = 0;
                      _wline = 0;
                      _next_line = false;
+                     _wind_en = false;
+                     _wind_flg = false;
                       cycle_cnt = 0;
                      LY = 0;
                   }
@@ -501,15 +503,10 @@ void Ppu::display_start() {
 
    _obj_num = 0;
    /* Check if window can be displayed */
-   if ((_ppu_mode & 0xc) != 0) {
-       _wind_en = (LCDC & (WIND_ENABLE|BG_PRIO)) == (WIND_ENABLE|BG_PRIO);
-   } else {
-       _wind_en = (LCDC & (WIND_ENABLE)) != 0;
-   }
    _wind_flg = false;
    /* Check if on valid line */
-   if (_wind_en && (LY < WY)) {
-       _wind_en = false;
+   if (LY == WY) {
+       _wind_en = true;
    }
    /* Compute correct tile to start window on */
    _wtile = (LCDC & WIND_AREA) ? 0x400 : 0x000;
@@ -628,24 +625,32 @@ void Ppu::display_pixel() {
 
     /* Check to see if we need to switch to window */
     if (_wind_en && !_wind_flg && ((LX-1) == WX)) {
-        /* Check if there is data for us */
-        if (_f_type != WIN) {
-            _f_state = GETA;  /* Nope, start fresh */
+        bool flg;
+        /* Check if window can be displayed */
+        if ((_ppu_mode & 0xc) != 0) {
+            flg = (LCDC & (WIND_ENABLE|BG_PRIO)) == (WIND_ENABLE|BG_PRIO);
+        } else {
+            flg = (LCDC & (WIND_ENABLE)) != 0;
+        }
+        if (flg) {
+            /* Check if there is data for us */
+            if (_f_type != WIN) {
+                _f_state = GETA;  /* Nope, start fresh */
+                _f_type = WIN;
+                return;
+            }
+            /* Wait until data ready */
+            if (_f_state != RDY) {
+                return;
+            }
+            _wind_flg = flg;
+            /* Set for display of Window and load Window into front of Fifo */
+            fill_pix(_wtile, _wline);
+            _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
+            /* Reschedule to grab next Window */
+            _f_state = GETA;
             _f_type = WIN;
-            return;
         }
-        /* Wait until data ready */
-        if (_f_state != RDY) {
-            return;
-        }
-        /* Set for display of Window and load Window into front of Fifo */
-        _wind_flg = true;
-        fill_pix(_wtile, _wline);
-        _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
-        /* Reschedule to grab next Window */
-        _f_state = GETA;
-        _f_type = WIN;
-        /* Need to return here since we need to wait for next 8 bits. */
     }
 
     /* Check if we need to load an Object */
