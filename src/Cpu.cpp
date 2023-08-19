@@ -1307,12 +1307,20 @@ void Cpu::second(uint8_t data)
 /**
  * @brief execute one instruction.
  *
- * Step the CPU by one instruction. First check if we can process
- * and interrupt and there is one ready. Next if we are halted see
- * if any interrupts should wake us up. Clear temporary interrupt
- * hold flag. Fetch next byte and transfer to it. If we are in
- * halted state, just preform an internal cycle to keep timing in
- * sync.
+ * Step the CPU by one instruction. If CPU is not running, let everybody
+ * know that a clock has occured. Then return right away. If CPU is in
+ * stopped state, preform an internal cycle, and read the Joypad to
+ * see if any buttons are pressed, at which point we either enter
+ * the halt set and take an interrupt. When halted check if there
+ * is an interrupt ready, if so exit halt state.
+ *
+ * Next we clear the interrupt enable holdoff flag to allow interrupts
+ * to occur. If CPU is halted, just do internal cycle. Otherwise fetch
+ * next byte and decode it with a switch statement. This will result in
+ * fetching registers and possibly calling a routine to handle the opcode.
+ * For 0313 (0xCB) the opcode is two bytes, so fetch second and call second()
+ * to decode it. Lastly check to see if an interrupt is pending, if
+ * so let do_irq() save state and set up for next routine.
  */
 void Cpu::step()
 {
@@ -1339,10 +1347,10 @@ void Cpu::step()
 
     /* If halted if any interrupts pending, exit halt state */
     if (halted && (irq_en & irq_flg & 0x1f) != 0) {
-       if (ime_hold) {
-          pc--;
-       }
-       halted = false;
+        if (ime_hold) {
+           pc--;
+        }
+        halted = false;
     }
 
     /* Clear interrupt hold flag */
@@ -1361,6 +1369,7 @@ void Cpu::step()
                break;
         }
     }
+
     /* Check if interrupt pending. */
     if (ime && !ime_hold && (irq_en & irq_flg & 0x1f) != 0) {
        do_irq();
