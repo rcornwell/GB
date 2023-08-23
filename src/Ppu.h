@@ -551,6 +551,7 @@ public:
           _mem->add_slice(&_data0, 0x8000);
           _mem->add_slice(&_map0, 0x9800);
           _mem->add_slice(&_oam, 0xfe00);
+          _mem->set_oam(&_oam);
      }
 
      void check_lyc();

@@ -112,12 +112,12 @@ void Memory::read(uint8_t &data, uint16_t addr) {
             uint8_t   dma_data;
             /* Transfer the data */
             _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(dma_data, _dma_count);
+            _oam->write(dma_data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
             }
-//printf("DMA Read %04x %04x %02x %d\n", addr, (_dma_addr & 0xff00) | _dma_count, _dma_data, _dma_count);
+//printf("DMA Read %04x %04x %02x %d\n", addr, (_dma_addr & 0xff00) | _dma_count, dma_data, _dma_count);
             if ((addr & 0xff00) == 0xfe00) {
                 data = 0xff;
                 cycle();
@@ -146,12 +146,12 @@ void Memory::write(uint8_t data, uint16_t addr) {
             uint8_t   dma_data;
             /* Transfer the data */
             _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(dma_data, _dma_count);
+            _oam->write(dma_data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
             }
-//printf("DMA Write %04x %04x %02x %d\n", addr, (_dma_addr & 0xff00) | _dma_count, _dma_data, _dma_count);
+//printf("DMA Write %04x %04x %02x %d\n", addr, (_dma_addr & 0xff00) | _dma_count, dma_data, _dma_count);
             if (_mem[(addr >> 8) & 0xff]->bus() == 2) {
                 cycle();
                 return;
@@ -175,8 +175,8 @@ void Memory::internal() {
             uint8_t   dma_data;
             /* Transfer the data */
             _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _mem[0xfe]->write(dma_data, _dma_count);
-//printf("DMA Internal %04x %02x %d\n", (_dma_addr & 0xff00) | _dma_count, data, _dma_count);
+            _oam->write(dma_data, _dma_count);
+//printf("DMA Internal %04x %02x %d\n", (_dma_addr & 0xff00) | _dma_count, dma_data, _dma_count);
             /* Stop at 160 bytes transfered */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;

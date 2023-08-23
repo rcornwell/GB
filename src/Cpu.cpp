@@ -1479,7 +1479,7 @@ string Cpu::disassemble(uint8_t ir, uint16_t addr, int &len)
     /* If two byte opcode, switch to second opcode */
     if (ir == 0313) {
         two_byte = true;
-        ir = 0xff;
+        ir = addr & 0xff;
     }
 
     /* Search opcode map for match */
@@ -1653,6 +1653,7 @@ void Cpu::trace()
     cout << "Div=" << hex << setfill('0') << setw(2) << (unsigned int)div << " ";
     cout << "F=" << hex << internal << setfill('0') << setw(2) << (unsigned int)(F) << " ";
     cout << "I=" << hex << internal << (unsigned int)(ime) << " ";
+    cout << "IE=" << hex << internal << (unsigned int)(irq_en) << " ";
     cout << "IF=" << hex << internal << (unsigned int)(irq_flg) << " ";
     cout << disassemble(ir, addr, len) << endl;
 }

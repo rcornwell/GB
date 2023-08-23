@@ -122,7 +122,7 @@ public:
             f |= !(button & 0xf0);
          }
          if ((_out_bits & 0x10) != 0) {
-            f |= !(button & 0xf);
+            f |= !(button & 0x0f);
          }
 
          if (f) {

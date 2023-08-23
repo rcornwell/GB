@@ -358,6 +358,7 @@ class Memory {
      bool       _disable_rom; /**< Boot ROM disabled */
      bool       _speed;       /**< Running in double speed mode */
      int        _step;        /**< Cycle step */
+     Slice     *_oam;         /**< Pointer to OAM memory for DMA */
 
 public:
      uint16_t   hdma_src;     /**< Source of HDMA transfer */
@@ -377,7 +378,8 @@ public:
       */
      Memory(Timer *timer, Ppu *ppu, Apu *apu, Serial *serial, bool color) :
             _dma_flag(false), _timer(timer), _ppu(ppu), _apu(apu),
-            _serial(serial), _cycles(0), _color(color), _disable_rom(false) {
+            _serial(serial), _cycles(0), _color(color), _disable_rom(false),
+            _oam(NULL) {
          /* Map all of memory to empty regions. */
          for (int i = 0; i < 256; i++) {
              _mem[i] = &_empty;
@@ -439,6 +441,15 @@ public:
       */
      void set_disable(uint8_t data) {
           _disable_rom = (data & 1);
+     }
+
+     /**
+      * @brief Set OMA pointer for DMA.
+      *
+      * @param oma Pointer to OMA memory.
+      */
+     void set_oam(Slice *oam) {
+          _oam = oam;
      }
 
      /**

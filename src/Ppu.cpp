@@ -680,7 +680,8 @@ void Ppu::display_pixel() {
 
         /* For color, update palette selection */
         if ((_ppu_mode & 0xc) == 0) {
-            base = ((flags & OAM_CPAL) << 2) | 0x20;
+            base = ((flags & OAM_CPAL) << 2) | 0x20 |
+                    ((flags & OAM_BG_PRI) ? 0x80:0x0);
         } else {
             flags &= ~OAM_BANK;
         }

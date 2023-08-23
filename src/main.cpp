@@ -270,7 +270,7 @@ void init_window()
     request.freq = 32768;
     request.format = AUDIO_U8;
     request.channels = 2;
-    request.samples = 64;
+    request.samples = 128;
     audio_device = SDL_OpenAudioDevice(NULL, 0, &request, &obtained, 0);
     if (audio_device == 0) {
        std::cerr << "Failed to get audio device" << std::endl;
