@@ -686,16 +686,11 @@ void Ppu::display_pixel() {
             flags &= ~OAM_BANK;
         }
 
-        if (_obj_pri == 0) {
-           overwrite = true;
-        } else if (_obj_num > 1 && _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num) {
+        if (_obj_pri == 0 || ((_ppu_mode & 0xc) == 0 && _obj_num > 1 && 
+                      _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num)) {
            overwrite = true;
         }
 
-//        if (_obj_pri == 0 && _obj_num > 1 &&
- //                _oam._objs[_obj_num-1].num > _oam._objs[_obj_num].num) {
- //           overwrite = true;
-  //      }
         /* Compute row to show */
         uint16_t y = (LY + 16) - _oam._objs[_obj_num].Y;
         if ((flags & OAM_Y_FLIP) != 0) {
