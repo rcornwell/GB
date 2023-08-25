@@ -135,7 +135,8 @@ public:
       * @param[out] data Data read from device.
       * @param[in] addr Address to read from device.
       */
-     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+     virtual void read_reg(uint8_t &data,
+                           [[maybe_unused]]uint16_t addr) const override {
           data = 0xff;
      }
 
@@ -193,7 +194,8 @@ public:
       * @param[out] data Data read from device.
       * @param[in] addr Address to read from device.
       */
-     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+     virtual void read_reg(uint8_t &data,
+                              [[maybe_unused]]uint16_t addr) const override {
           data = *_loc | _mask;
      }
 
@@ -205,7 +207,8 @@ public:
       * @param[in] data Data to write to device register.
       * @param[in] addr Address to write data to.
       */
-     virtual void write_reg(uint8_t data, [[maybe_unused]]uint16_t addr) override {
+     virtual void write_reg(uint8_t data,
+                                   [[maybe_unused]]uint16_t addr) override {
           *_loc = data;
      }
 

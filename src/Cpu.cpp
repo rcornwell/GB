@@ -1,5 +1,5 @@
 /*
- * GB - CPU instruction execution and disassembler
+ * GB - CPU instruction execution and dis-assembler
  *
  * Author:      Richard Cornwell (rich@sky-visions.com)
  * Copyright 2023, Richard Cornwell
@@ -33,7 +33,7 @@
 
 using namespace std;
 
-/**< Opcode types emumeration */
+/**< Opcode types enumeration */
 enum opcode_type {
     MOV, STS, RPI, LDX, LDS, LDN, LDC, ABS, IMD,
     OPR, BIT, SHF, STK, RST, ROP, IMM, INX, IMS,
@@ -222,7 +222,7 @@ inline void Cpu::op_cp(uint8_t v)
 /**
  * @brief Preform Decimal Adjust instruction.
  *
- * Fixup after addition or subtraction to make number valid BCD.
+ * Fix-up after addition or subtraction to make number valid BCD.
  * @memberof Cpu
  */
 inline void Cpu::op_daa()
@@ -926,7 +926,7 @@ inline void Cpu::op_push()
  * @brief Call subroutine at address of next two bytes.
  *
  * Call the subroutine at the address in the next two bytes.
- * If cond is zero, just fetch next two bytes, otherwise
+ * If condition is zero, just fetch next two bytes, otherwise
  * push current PC onto stack and transfer to address.
  *
  * @param cond If non-zero do call, otherwise nothing.
@@ -1002,7 +1002,7 @@ inline void Cpu::op_ret(uint8_t cond)
 /**
  * @brief Return from subroutine.
  *
- * This is seperate subroutine since the timing of conditional
+ * This is separate subroutine since the timing of conditional
  * return includes an extra internal state where condition is
  * checked. This does not occur on unconditional returns.
  * @memberof Cpu
@@ -1033,7 +1033,7 @@ inline void Cpu::op_reti()
  * Push the current PC and transfer to location n * 8.
  * @memberof Cpu
  */
-inline void Cpu::op_rst(int n)
+inline void Cpu::op_rst(uint16_t n)
 {
     mem->internal();
     push(pc);
@@ -1308,13 +1308,13 @@ void Cpu::second(uint8_t data)
  * @brief execute one instruction.
  *
  * Step the CPU by one instruction. If CPU is not running, let everybody
- * know that a clock has occured. Then return right away. If CPU is in
+ * know that a clock has occurred. Then return right away. If CPU is in
  * stopped state, preform an internal cycle, and read the Joypad to
  * see if any buttons are pressed, at which point we either enter
  * the halt set and take an interrupt. When halted check if there
  * is an interrupt ready, if so exit halt state.
  *
- * Next we clear the interrupt enable holdoff flag to allow interrupts
+ * Next we clear the interrupt enable hold-off flag to allow interrupts
  * to occur. If CPU is halted, just do internal cycle. Otherwise fetch
  * next byte and decode it with a switch statement. This will result in
  * fetching registers and possibly calling a routine to handle the opcode.
@@ -1329,7 +1329,7 @@ void Cpu::step()
         return;
     }
 
-    /* Check if stoped state */
+    /* Check if stopped state */
     if (stopped) {
         uint8_t     jdata;
         mem->internal();
@@ -1620,7 +1620,7 @@ string Cpu::disassemble(uint8_t ir, uint16_t addr, int &len)
     return temp.str();
 }
 
-string Cpu::dumpregs(uint8_t regs[8])
+string Cpu::dumpregs()
 {
     int i;
     stringstream temp;
@@ -1648,7 +1648,7 @@ void Cpu::trace()
     addr = t;
     mem->read_nocycle(t, pc+2);
     addr |= (t << 8);
-    cout << dumpregs(regs) << "SP=" << hex << internal << setfill('0') << setw(4) << sp << " ";
+    cout << dumpregs() << "SP=" << hex << internal << setfill('0') << setw(4) << sp << " ";
     cout << hex << internal << setfill('0') << setw(4) << pc << " ";
     cout << "Div=" << hex << setfill('0') << setw(2) << (unsigned int)div << " ";
     cout << "F=" << hex << internal << setfill('0') << setw(2) << (unsigned int)(F) << " ";

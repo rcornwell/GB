@@ -85,7 +85,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>c:\sdl2\include;$(IncludePath)</IncludePath>
+    <IncludePath>c:\sdl2\include;Z:\GB\image;$(IncludePath)</IncludePath>
     <LibraryPath>c:\sdl2\lib\x64;$(LibraryPath)</LibraryPath>
     <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
@@ -162,8 +162,10 @@
     <ClCompile Include="..\src\Cartridge.cpp" />
     <ClCompile Include="..\src\Cpu.cpp" />
     <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\MBC1.cpp" />
     <ClCompile Include="..\src\MBC3.cpp" />
     <ClCompile Include="..\src\Memory.cpp" />
+    <ClCompile Include="..\src\MMM01.cpp" />
     <ClCompile Include="..\src\Ppu.cpp" />
     <ClCompile Include="..\src\ROM.cpp" />
   </ItemGroup>
@@ -198,6 +200,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GB.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\image\icon.xpm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -39,6 +39,12 @@
     <ClCompile Include="..\src\ROM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\MBC1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\MMM01.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Apu.h">
@@ -117,5 +123,10 @@
     <ResourceCompile Include="GB.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\image\icon.xpm">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

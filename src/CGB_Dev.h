@@ -352,11 +352,13 @@ public:
          return 1;
      }
 
-     virtual void read_reg(uint8_t &data, uint16_t addr) const override {
+     virtual void read_reg(uint8_t &data,
+                                [[maybe_unused]]uint16_t addr) const override {
          data = _mode | 0xfe;
      }
 
-     virtual void write_reg(uint8_t data, uint16_t addr) override {
+     virtual void write_reg(uint8_t data,
+                                [[maybe_unused]]uint16_t addr) override {
          _mode = data;
          _ppu->set_obj_pri(data);
      }

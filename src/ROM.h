@@ -32,7 +32,7 @@
  * @brief Boot ROM for Game Boy.
  *
  * This ROM holds the boot rom. The ROM is located at location 0 on
- * reset. Later the ROM can be disabled before transfering to the game
+ * reset. Later the ROM can be disabled before transferring to the game
  * cartridge.
  */
 class ROM : public Slice {
@@ -65,7 +65,7 @@ public:
      * ROM's can't be written so default is to do nothing.
      *
      * @param[in] data Value to write to memory at address.
-     * @param[in] addr Addess to access.
+     * @param[in] addr Location to access.
      */
     virtual void write([[maybe_unused]]uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {

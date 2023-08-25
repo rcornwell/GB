@@ -107,13 +107,14 @@ void Memory::cycle() {
 void Memory::read(uint8_t &data, uint16_t addr) {
      cycle();
      if (_dma_flag) {
-        /* If DMA in progress, wait 2 cycles before transfering */
+        /* If DMA in progress, wait 2 cycles before transferring */
         if (++_dma_count >= 0) {
             uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _oam->write(dma_data, _dma_count);
-            /* Stop at 160 bytes transfered */
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data,
+                                _dma_addr | (uint16_t)(_dma_count & 0xff));
+            _oam->write(dma_data, (uint16_t)(_dma_count & 0xff));
+            /* Stop at 160 bytes transferred*/
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
             }
@@ -141,13 +142,14 @@ void Memory::read(uint8_t &data, uint16_t addr) {
 void Memory::write(uint8_t data, uint16_t addr) {
      cycle();
      if (_dma_flag) {
-        /* If DMA in progress, wait 2 cycles before transfering */
+        /* If DMA in progress, wait 2 cycles before transferring */
         if (++_dma_count >= 0) {
-            uint8_t   dma_data;
+           uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _oam->write(dma_data, _dma_count);
-            /* Stop at 160 bytes transfered */
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data,
+                                   _dma_addr | (uint16_t)(_dma_count & 0xff));
+            _oam->write(dma_data, (uint16_t)(_dma_count & 0xff));
+            /* Stop at 160 bytes transferred */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
             }
@@ -170,14 +172,15 @@ void Memory::write(uint8_t data, uint16_t addr) {
 void Memory::internal() {
      cycle();
      if (_dma_flag) {
-        /* If DMA in progress, wait 2 cycles before transfering */
+        /* If DMA in progress, wait 2 cycles before transferring */
         if (++_dma_count >= 0) {
             uint8_t   dma_data;
             /* Transfer the data */
-            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data, _dma_addr | _dma_count);
-            _oam->write(dma_data, _dma_count);
+            _mem[(_dma_addr >> 8) & 0xff]->read(dma_data,
+                                   _dma_addr | (uint16_t)(_dma_count & 0xff));
+            _oam->write(dma_data, (uint16_t)(_dma_count & 0xff));
 //printf("DMA Internal %04x %02x %d\n", (_dma_addr & 0xff00) | _dma_count, dma_data, _dma_count);
-            /* Stop at 160 bytes transfered */
+            /* Stop at 160 bytes transferred */
             if (_dma_count == 0x9f) {
                 _dma_flag = 0;
             }

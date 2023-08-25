@@ -1,5 +1,5 @@
 /*
- * GB - MBC3 Cartidge Mapper logic.
+ * GB - MBC3 Cartridge Mapper logic.
  *
  * Author:      Richard Cornwell (rich@sky-visions.com)
  * Copyright 2023, Richard Cornwell
@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <ctime>
+#include <cmath>
 #include <functional>
 #include "signal.h"
 
@@ -65,14 +66,14 @@ static inline void load64_int(const uint8_t* p, uint64_t &x) {
  * @param x[in] 64 bit integer.
  */
 static inline void store64_int(uint8_t *p, const uint64_t &x) {
-    p[0] = x >> 8*0;
-    p[1] = x >> 8*1;
-    p[2] = x >> 8*2;
-    p[3] = x >> 8*3;
-    p[4] = x >> 8*4;
-    p[5] = x >> 8*5;
-    p[6] = x >> 8*6;
-    p[7] = x >> 8*7;
+    p[0] = (uint8_t)((x >> 8*0) & 0xff);
+    p[1] = (uint8_t)((x >> 8*1) & 0xff);
+    p[2] = (uint8_t)((x >> 8*2) & 0xff);
+    p[3] = (uint8_t)((x >> 8*3) & 0xff);
+    p[4] = (uint8_t)((x >> 8*4) & 0xff);
+    p[5] = (uint8_t)((x >> 8*5) & 0xff);
+    p[6] = (uint8_t)((x >> 8*6) & 0xff);
+    p[7] = (uint8_t)((x >> 8*7) & 0xff);
 }
 
 
@@ -226,6 +227,14 @@ void Cartridge_MBC3_RAM::update_time() {
     load64_int(&_data[_rtc_base + RTC_TIME], _ot);
     _oldtime = (time_t)_ot;
     double seconds = difftime(_time, _oldtime);
+    /* If over 512 days, force overflow */
+    if (seconds > (512 * 86400.0f)) {
+        uint8_t v2 = _data[_rtc_base + RTC_DH];
+        v2 |= 0x80;
+        _data[_rtc_base + RTC_DH] = v2;
+        /* Take remainder */
+        seconds = std::remainder(seconds, (double)(512 * 86400.0f));
+    }
     /* Advance by days until less than day remaining */
     while(seconds > 86400.0f) {
          advance_day();
@@ -259,7 +268,7 @@ void Cartridge_MBC3_RAM::update_time() {
          seconds -= 60.0f;
     }
 
-    /* Finaly advance by seconds */
+    /* Finally advance by seconds */
     while(seconds > 0.0f) {
          tick();
          seconds -= 1.0f;
@@ -281,6 +290,27 @@ void Cartridge_MBC3_RAM::advance_day() {
     _data[_rtc_base + RTC_DL] = v;
 }
 
+void Cartridge_MBC3_bank::write(uint8_t data, uint16_t addr) {
+    /* Preform bank switching */
+    switch (addr >> 13) {
+    case 2:          /* 0x4000 - 0x5fff */
+            /* MBC3   select ram bank */
+            _ram_bank = ((uint32_t)(data & 0xf));
+            if (_ram) {
+                _ram->set_bank(_ram_bank);
+            }
+            break;
+    case 3:          /* 0x6000 - 0x7fff */
+            /* MBC3   Latch RTC */
+            if (rtc_flag) {
+                Cartridge_MBC3_RAM* ram =
+                                  dynamic_cast<Cartridge_MBC3_RAM*>(_ram);
+                ram->latch(data);
+            }
+            break;
+    }
+}
+
 /**
  * @brief Setup RAM for Cartridge.
  *
@@ -288,7 +318,8 @@ void Cartridge_MBC3_RAM::advance_day() {
  * If there is already RAM make sure it is same size as
  * cartridge defined RAM.
  */
-Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_size) {
+Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data,
+                 size_t ram_size) {
 #define K  1024
      Cartridge_MBC3_RAM  *mbc_ram = NULL;
      size_t     size;
@@ -305,9 +336,9 @@ Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_s
      if ((type & TIM) != 0) {
          _rom_bank->rtc_flag = true;
          if (ram_data != NULL) {
-             uint16_t temp = ram_size;
+             uint32_t temp = (uint32_t)ram_size;
              if ((temp & (temp - 1)) != 0) {
-                uint16_t extra = 48;
+                uint32_t extra = 48;
                 temp |= temp >> 1;
                 temp |= temp >> 2;
                 temp |= temp >> 4;
@@ -317,9 +348,10 @@ Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_s
                 if (temp < 2*K) {
                     temp = 0;
                 }
-                extra = ram_size - temp;
+                extra = (uint32_t)ram_size - temp;
                 if (extra != 44 && extra != 48) {
-                    printf("Invalid RAM size %d %d\n", temp, extra);
+                    std::cerr << "Invalid RAM size " << (int)temp <<
+                            " " << (int)extra << std::endl;
                 }
                 ram_size -= extra;
              }
@@ -354,5 +386,43 @@ Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data, size_t ram_s
          }
      }
      return _ram;
+}
+
+void Cartridge_MBC3::map_cart() {
+    _rom_bank->set_ram(_ram);
+    /* Map ourselves in place */
+    _mem->add_slice(this, 0);
+    _mem->add_slice(_rom_bank, 0x4000);
+    _mem->add_slice_sz(&_empty, 0xa000, 32);
+    disable_rom(0);
+}
+
+void Cartridge_MBC3::write(uint8_t data, uint16_t addr) {
+    uint32_t    new_bank;
+
+    /* Preform bank switching */
+    switch (addr >> 13) {
+    case 0:          /* 0x0000 - 0x1fff */
+            /* MBC3    enable ram. */
+            /*       0xa    - enable. else disable */
+            if (_ram == NULL)
+                return;
+            if ((data & 0xf) == 0xa) {
+               _mem->add_slice(_ram, 0xa000);
+            } else {
+               _mem->add_slice_sz(&_empty, 0xa000, 32);
+            }
+            break;
+    case 1:          /* 0x2000 - 0x3fff */
+            /* MBC3   select memory bank */
+            /*       0 - 1F   bank for 0x4000-0x7fff */
+            new_bank = ((uint32_t)(data & 0x7f)) << 14;
+            if (new_bank == 0) {
+                new_bank = 0x4000;
+            }
+            new_bank &= _size - 1;
+            _rom_bank->set_bank(new_bank);
+            break;
+     }
 }
 

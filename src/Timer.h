@@ -37,7 +37,7 @@
  * Provide regular interrupts to the game system.
  */
 class Timer : public Device {
-     uint16_t    _div;              /**< Dividor register */
+     uint16_t    _div;              /**< Divider register */
      uint16_t    _tima;             /**< Current timer register */
      uint8_t     _tma;              /**< Timer reload register */
      uint8_t     _tac;              /**< Timer control register */

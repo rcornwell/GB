@@ -46,7 +46,7 @@
  * The Joypad object handles the buttons.
  * It has two output pins to select which set of 4 buttons
  * to read. Setting either of the output lines to 1 results
- * In 1's for unpushed buttons and 0's for pushed buttons.
+ * In 1's for unpressed buttons and 0's for pressed buttons.
  */
 class Joypad : public Device {
 protected:
@@ -78,11 +78,12 @@ public:
      /**
       * @brief Read Joypad bits.
       *
-      * Use outbits to decide which half of the register to output.
+      * Use out_bits to decide which half of the register to output.
       * @param[out] data Data read from buttons.
       * @param[in] addr Address to read from, ignored since only one device.
       */
-     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+     virtual void read_reg(uint8_t &data,
+                                [[maybe_unused]]uint16_t addr) const override {
          data = _out_bits & 0xF0;
 
          if ((_out_bits & 0x20) != 0) {
@@ -102,7 +103,8 @@ public:
       * @param[in] data Data to write to outbits.
       * @param[in] addr Address to write to, ignored since only one device.
       */
-     virtual void write_reg(uint8_t data, uint16_t addr) override {
+     virtual void write_reg(uint8_t data,
+                       [[maybe_unused]]uint16_t addr) override {
          _out_bits = data | 0xc0;
      }
 

@@ -422,7 +422,7 @@ void Ppu::fill_pix(int tile, int row) {
     int      i;
     uint8_t  attr = 0;
     bool     flip = false;
-    int      pal = 0;
+    uint8_t  pal = 0;
 
     /* Load tile map data */
     data = _map0._data[tile];
@@ -697,9 +697,9 @@ void Ppu::display_pixel() {
  //           overwrite = true;
   //      }
         /* Compute row to show */
-        int y = (LY + 16) - _oam._objs[_obj_num].Y;
+        uint16_t y = (LY + 16) - _oam._objs[_obj_num].Y;
         if ((flags & OAM_Y_FLIP) != 0) {
-            int        high = (LCDC & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
+            uint16_t high = (LCDC & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
             y = high - y - 1;
         }
         row += y;

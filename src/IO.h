@@ -88,7 +88,7 @@
  *     0x52  | HDMA2  | Low DMA source        |
  *     0x53  | HDMA3  | High DMA destination  |
  *     0x54  | HDMA4  | Low DMA destination   |
- *     0x55  | HDMA5  | DMA lenght/mode       |
+ *     0x55  | HDMA5  | DMA length/mode       |
  *     0x56  | IR     | Infrared link         |
  *     0x68  | BCPS   | Background color      |
  *     0x69  | BCPD   | Background data       |
@@ -161,7 +161,7 @@ public:
       * @brief Add a device to IO space.
       *
       * Add a device to I/O Space. Ask device for first address and number
-      * of locatons. Also pass interrupt flag location to device to handle
+      * of locations. Also pass interrupt flag location to device to handle
       * interrupts.
       *
       * @param dev Device to add.

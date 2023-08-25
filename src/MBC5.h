@@ -97,8 +97,8 @@ public:
      * @brief Map Cartridge into Memory space.
      *
      * Map Cartridge ROM and RAM objects into memory space. Initially the RAM
-     * is pointed to Empty until the RAM is enabled. If Boot ROM is enabled (default)
-     * the boot ROM is mapped over the lower 256 bytes of ROM.
+     * is pointed to Empty until the RAM is enabled. If Boot ROM is enabled
+     * (default) the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
          _rom_bank->set_ram(_ram);

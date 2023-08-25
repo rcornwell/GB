@@ -1,5 +1,5 @@
 /*
- * GB - Picture Processoring Unit.
+ * GB - Picture Processor Unit.
  *
  * Author:      Richard Cornwell (rich@sky-visions.com)
  * Copyright 2023, Richard Cornwell
@@ -102,10 +102,10 @@
  *
  * Tiles are stored in even/odd byte pairs. The even byte gives the
  * lower bit of each pixel, the odd byte gives the upper bit of each
- * pixed. 8 pixels are packed into 2 bytes.
+ * pixel. 8 pixels are packed into 2 bytes.
  *
  * The Tile Memory converts bytes into 2 bit tile pieces whenever
- * any of the bytes are updated. This simplifes the processing of
+ * any of the bytes are updated. This simplifies the processing of
  * pixels when it is being displayed. Each row of the tiles is stored
  * as an 8 byte array.
  *
@@ -266,7 +266,7 @@ struct OBJ {
      uint8_t     Y;        /**< Y location */
      uint8_t     flags;    /**< Cached flags */
      uint8_t     tile;     /**< Cached tile */
-     uint8_t     num;      /**< Original Object number */
+     int         num;      /**< Original Object number */
 };
 
 #define LCDC_ENABLE  0x80  /* Enable the LCD controller */

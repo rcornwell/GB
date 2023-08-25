@@ -1,5 +1,5 @@
 /*
- * GB - Main startup file.
+ * GB - Main start-up file.
  *
  * Author:      Richard Cornwell (rich@sky-visions.com)
  * Copyright 2023, Richard Cornwell
@@ -45,7 +45,7 @@
 #include "Joypad.h"
 #include "Cartridge.h"
 const
-#include "icon.xpm"
+#include "../image/icon.xpm"
 
 /**
  * @brief Main interface between emulator and SDL.
@@ -53,8 +53,6 @@ const
  * This file holds the interface between the emulator and SDL library.
  * This is not a class since these functions interface with C libraries.
  */
-
-using namespace std;
 
 SDL_Window       *window;
 SDL_Surface      *icon;
@@ -64,7 +62,7 @@ SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
 SDL_AudioSpec     obtained;
 
-uint8_t           audio_buffer[2048]; /**< Buffer of generated samples */
+int8_t            audio_buffer[2048]; /**< Buffer of generated samples */
 int               audio_pos;          /**< Position to write audio samples */
 
 #define CYCLES_PER_SCREEN 17556
@@ -75,10 +73,10 @@ bool              POWER;              /**< Game boy power state */
 bool              trace_flag;         /**< Trace instruction execution */
 bool              color;              /**< Color Game Boy */
 
-string            rom_name;           /**< ROM name being loaded */
-string            sav_name;           /**< Backup RAM Memory */
+std::string       rom_name;           /**< ROM name being loaded */
+std::string       sav_name;           /**< Backup RAM Memory */
 
-string            host;
+std::string       host;
 int               port;
 
 Joypad            *joy;               /**< Pointer to Joypad device */
@@ -186,8 +184,8 @@ int main(int argc, char **argv)
      /* Check if no save name give. */
      if (sav_name.empty()) {
          sav_name = rom_name;
-         string::size_type sz = sav_name.rfind('.', sav_name.length());
-         if (sz != string::npos) {
+         std::string::size_type sz = sav_name.rfind('.', sav_name.length());
+         if (sz != std::string::npos) {
              sav_name.replace(sz+1, 3, "sav");
          }
      }
@@ -221,15 +219,15 @@ int main(int argc, char **argv)
 
      /* When finished check if Cartridge was battery backed up */
      if (cart->ram_battery()) {
-         uint8_t   *ram_data = cart->ram_data();
-         size_t     ram_size = cart->ram_size();
-         fstream    save_file;
+         uint8_t        *ram_data = cart->ram_data();
+         size_t          ram_size = cart->ram_size();
+         std::fstream    save_file;
 
          if (ram_data == NULL) {
              std::cerr << "No data to save" << std::endl;
          } else {
              std::cout << "Save file: " << ram_size << std::endl;
-             save_file.open(sav_name, ios_base::out|ios_base::binary);
+             save_file.open(sav_name, std::ios_base::out|std::ios_base::binary);
              if (!save_file.is_open()) {
                  std::cerr << "Unable to save RAM to: " << sav_name
                                  << std::endl;
@@ -268,9 +266,9 @@ void init_window()
 
     /* Request audio playback */
     request.freq = 32768;
-    request.format = AUDIO_U8;
+    request.format = AUDIO_S8;
     request.channels = 2;
-    request.samples = 128;
+    request.samples = 2048;
     audio_device = SDL_OpenAudioDevice(NULL, 0, &request, &obtained, 0);
     if (audio_device == 0) {
        std::cerr << "Failed to get audio device" << std::endl;
@@ -375,10 +373,10 @@ set_joypad(Joypad *_joy)
 /**
  * @brief Send out one audio sample.
  *
- * Send out a sterio pair of audio samples to let SDL grab them later.
+ * Send out a stereo pair of audio samples to let SDL grab them later.
  */
 void
-audio_output(uint8_t right, uint8_t left)
+audio_output(int8_t right, int8_t left)
 {
    audio_buffer[audio_pos++] = right;
    audio_buffer[audio_pos++] = left;
@@ -402,7 +400,7 @@ run_sim()
     /* Initialize SDL for display */
     POWER = true;
     SDL_PauseAudioDevice(audio_device, 0);
-    render = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED);
+    render = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear( render);
     SDL_RenderPresent( render );
@@ -559,7 +557,6 @@ run_sim()
           }
        }
        /* Run for 16.742ms */
-       audio_pos = 0;
        while(cpu->get_cycles() < CYCLES_PER_SCREEN) {
           cpu->step();
           if (trace_flag && !cpu->halted) {
@@ -572,6 +569,7 @@ run_sim()
        /* If CPU running, push out audio samples */
        if (cpu->running && !trace_flag)
            SDL_QueueAudio(audio_device, (void *)audio_buffer, audio_pos);
+       audio_pos = 0;
 
        /* Compute how long to wait for before next screen */
        uint64_t end_time = SDL_GetPerformanceCounter();

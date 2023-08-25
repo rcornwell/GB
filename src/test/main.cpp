@@ -80,7 +80,7 @@ void run_sim()
 {
 }
 
-void audio_output(uint8_t right, uint8_t left)
+void audio_output(int8_t right, int8_t left)
 {
 }
 

@@ -54,7 +54,7 @@ public:
      *
      * Create RAM space for a Cartridge, size specifies power
      * of 2 number of bytes to allocation. Also mask off any
-     * unaccessable bits of bank select if RAM is too small to
+     * unassailable bits of bank select if RAM is too small to
      * have banks. This makes RAM bank bits over size to be
      * effectively ignored.
      *
@@ -70,7 +70,7 @@ public:
     /**
      * @brief Create a Cartridge RAM from file.
      *
-     * Create RAM space for a Cartidge, size is number of bytes
+     * Create RAM space for a Cartridge size is number of bytes
      * in file, and data points to existing data.
      *
      * @param data Pointer to data to access.
@@ -201,7 +201,7 @@ public:
  *
  * @class Cartridge_bank Cartridge.h "Cartridge.h"
  *
- * Each bank controller should overide these methods to support
+ * Each bank controller should override these methods to support
  * the bank switching system in use.
  */
 class Cartridge_bank : public Slice {
@@ -276,11 +276,11 @@ public:
     /**
      * @brief Read a byte from ROM.
      *
-     * Mask Addess give to 16K and then add in bank number to
+     * Mask Address give to 16K and then add in bank number to
      * access ROM.
      *
      * @param[out] data Value of memory at address.
-     * @param[in] addr Addess to access.
+     * @param[in] addr Address to access.
      */
     virtual void read(uint8_t &data, uint16_t addr) const override {
        data = _data[_bank+(addr & 0x3fff)];
@@ -292,7 +292,7 @@ public:
      * ROM's can't be written so default is to do nothing.
      *
      * @param[in] data Value to write to memory at address.
-     * @param[in] addr Addess to access.
+     * @param[in] addr Address to access.
      */
     virtual void write([[maybe_unused]]uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {
@@ -330,7 +330,7 @@ public:
  *
  * @class Cartridge_ROM Cartridge.h "Cartridge.h"
  *
- * Default is that the complete cartridge is accessable at one time.
+ * Default is that the complete cartridge is accessible at one time.
  * Hence no need to for bank controller. Some memory Cartridges will
  * Override this to provide selection for these features.
  */
@@ -400,7 +400,7 @@ public:
      * page 0 of ROM.
      *
      * @param[out] data Value of memory at address.
-     * @param[in] addr Addess to access.
+     * @param[in] addr Address to access.
      */
     virtual void read(uint8_t &data, uint16_t addr) const override {
        data = _data[addr];
@@ -412,7 +412,7 @@ public:
      * ROM's can't be written so default is to do nothing.
      *
      * @param[in] data Value to write to memory at address.
-     * @param[in] addr Addess to access.
+     * @param[in] addr Address to access.
      */
     virtual void write([[maybe_unused]]uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {
@@ -500,14 +500,14 @@ enum Cart_type {
  * Created before the CPU is created, this object holds the current
  * ROM and RAM of the cartridge.
  *
- * At startup a Cartridge object is created. main() creates a byte array
+ * At start-up Cartridge object is created. main() creates a byte array
  * that will hold the full ROM, it passes this to the Cartridge object with
  * a call to load_rom(). If a save file exists, it is also loaded and given
  * to the Cartridge object with the call load_ram().
  *
  * The cartridge Object is then passed to the CPU object. When it has created
  * the Memory object to hold access to memory, it passes the object pointer to
- * Cartridge so that it can map itself into place. When the Cartridge recieves
+ * Cartridge so that it can map itself into place. When the Cartridge receives
  * the Memory pointer it examines the header of the Cartridge and creates a
  * specific type of Cartridge object that knows how to manage the specific
  * bank switching which is used by the cartridge.
@@ -517,8 +517,8 @@ enum Cart_type {
  * RAM used by the device and return either a pointer to it or NULL if there
  * is no RAM.
  *
- * The last thing that is done is calling the ROM's map_cart() function which will
- * map the ROM and RAM into Memory space.
+ * The last thing that is done is calling the ROM's map_cart() function which
+ * will map the ROM and RAM into Memory space.
  *
  * The Cartridge object is not used again until the main() routine asks if there
  * is any RAM data to save to a file.
@@ -538,8 +538,8 @@ class Cartridge {
 
 public:
     explicit Cartridge(uint8_t *rom_data, size_t size, bool color) :
-           _rom(NULL), _ram(NULL), _mem(NULL),
-           _data(rom_data), _size(size), _ram_data(NULL), _ram_size(0), _color(color) {}
+           _rom(NULL), _ram(NULL), _mem(NULL), _data(rom_data), _size(size),
+           _ram_data(NULL), _ram_size(0), _color(color) {}
 
     virtual ~Cartridge() {
         delete _rom;
@@ -614,7 +614,8 @@ public:
      * @param[out] data Data read from register.
      * @param[in] addr Address of register to read.
      */
-     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+     virtual void read_reg(uint8_t &data,
+                               [[maybe_unused]]uint16_t addr) const override {
           data = 0xff;
      }
 

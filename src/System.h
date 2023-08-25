@@ -49,7 +49,7 @@ void run_sim();
 
 void draw_screen();
 
-void audio_output(uint8_t right, uint8_t left);
+void audio_output(int8_t right, int8_t left);
 
 void power_off();
 

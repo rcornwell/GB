@@ -237,9 +237,9 @@ public:
     /**
      * @brief Fetch the register specified by the parameter R.
      *
-     * This function is templated to allow for inline generation of the correct
+     * This function is template to allow for inline generation of the correct
      * function based on definitions. The code should be expanded to just fetch
-     * the value or the contects of memory.
+     * the value or the contexts of memory.
      *
      * @tparam R register to fetch.
      * @return Value of the register/memory.
@@ -453,14 +453,14 @@ public:
     };
 
     /**
-     * @brief Disassembler current instruction.
+     * @brief Dis-assemblerr current instruction.
      */
     std::string disassemble(uint8_t ir, uint16_t addr, int &len);
 
     /**
      * @brief Dump CPU registers.
      */
-    std::string dumpregs(uint8_t regs[8]);
+    std::string dumpregs();
 
 private:
     /**
@@ -489,7 +489,7 @@ private:
 #define XOPR(name)   ROPR(name) \
                      STK(dad) \
                      void op_addsp();
-#define RST(name)    void op_##name(int n);
+#define RST(name)    void op_##name(uint16_t n);
 #define REG(name)
 #define STS(name)    void op_stsp();
 #define RPI(name)    STK(ld##name)

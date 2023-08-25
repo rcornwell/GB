@@ -74,7 +74,8 @@ int rom_type[0x1f] = {
  * If there is already RAM make sure it is same size as
  * cartridge defined RAM.
  */
-Cartridge_RAM *Cartridge_ROM::set_ram(int type, uint8_t *ram_data, size_t ram_size) {
+Cartridge_RAM *Cartridge_ROM::set_ram([[maybe_unused]]int type,
+                            uint8_t *ram_data, size_t ram_size) {
 #define K  1024
      size_t     size;
 
@@ -181,7 +182,7 @@ void Cartridge::set_mem(Memory *mem) {
          /* Special check for MMM01 cartridge */
          if ((type & 0xf) == MBC1 && _size > (64 * 1024)) {
              int type2 = type;
-             if (header_checksum((_size / (32 * 1024) - 1))) {
+             if (header_checksum(((int)_size / (32 * 1024) - 1))) {
                  type = rom_type[_data[0x147 + (_size - (32 * 1024))] & 0x1f];
                  std::cout << "Type2 " << std::hex << type << " ";
              }

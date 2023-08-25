@@ -166,7 +166,7 @@ public:
 /**
  * @brief Area represents a generic chunk of memory.
  *
- * An Area represnets a block of memory that can be read and written.
+ * An Area represents a block of memory that can be read and written.
  * It has a pointer to data space, and a mask indicating what address
  * bits are valid. The mask must be a power of 2 - 1.
  */
@@ -334,7 +334,7 @@ public:
  * the memory is set to all empty chunks.
  *
  * Memory also handles DMA operations to OAM space. If a DMA transfer is
- * in progress this will take presentence over access to any Memory except
+ * in progress this will take precedence over access to any Memory except
  * page 0xff.
  *
  * Memory handles cycle timing, every time memory is accessed the timer
@@ -444,9 +444,9 @@ public:
      }
 
      /**
-      * @brief Set OMA pointer for DMA.
+      * @brief Set OAM pointer for DMA.
       *
-      * @param oma Pointer to OMA memory.
+      * @param oam Pointer to OMA memory.
       */
      void set_oam(Slice *oam) {
           _oam = oam;
@@ -479,7 +479,7 @@ public:
      /**
       * @brief Internal cycle.
       *
-      * Used to have timer, ppu and DMA processs when CPU is not accessing
+      * Used to have timer, ppu and DMA process when CPU is not accessing
       * memory. This also processes the current DMA cycle and calls the
       * timer and ppu cycle function.
       */
@@ -566,7 +566,7 @@ public:
      /**
       * @brief Adjust for minor cycles.
       *
-      * Reset number of cyles based on how many were requested.
+      * Reset number of cycles based on how many were requested.
       *
       * @param max_cycles Maximum number of CPU cycles we should have ran.
       */

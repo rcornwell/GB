@@ -42,7 +42,8 @@ public:
         _mask = 0x1ff;
     }
 
-    explicit Cartridge_MBC2_RAM(uint8_t *data, size_t size) : Cartridge_RAM(data, size) {
+    explicit Cartridge_MBC2_RAM(uint8_t *data, size_t size) :
+           Cartridge_RAM(data, size) {
         _mask = 0x1ff;
     }
 
@@ -62,7 +63,7 @@ public:
     /**
      * @brief Write RAM data.
      *
-     * Only lower Nibble of RAM can be writen. It is also repeated over
+     * Only lower Nibble of RAM can be written. It is also repeated over
      * the entire address space.
      *
      * @param[in] data Data write to RAM.
@@ -88,8 +89,8 @@ public:
  *
  * The lower bank controls enabling of RAM and selection of the lower bank bits.
  *
- * Writing 0xxA to 0x0000-0x1fff enables the RAM. Writing anything else disables RAM.
- * Writing to 0x2000-0x3fff selects lower 4 bank bits of cartridges.
+ * Writing 0xxA to 0x0000-0x1fff enables the RAM. Writing anything else disables
+ * RAM. Writing to 0x2000-0x3fff selects lower 4 bank bits of cartridges.
  *
  */
 class Cartridge_MBC2 : public Cartridge_ROM {
@@ -121,7 +122,8 @@ public:
      * @param ram_size Size of RAM file.
      * @return Pointer to RAM object.
      */
-    virtual Cartridge_RAM *set_ram(int type, uint8_t *ram_data, size_t ram_size) override {
+    virtual Cartridge_RAM *set_ram([[maybe_unused]]int type, uint8_t *ram_data,
+                                             size_t ram_size) override {
         ram_size = 512;
         _ram = new Cartridge_MBC2_RAM(ram_data, ram_size);
         return _ram;
@@ -131,8 +133,8 @@ public:
      * @brief Map Cartridge into Memory space.
      *
      * Map Cartridge ROM and RAM objects into memory space. Initially the RAM
-     * is pointed to Empty until the RAM is enabled. If Boot ROM is enabled (default)
-     * the boot ROM is mapped over the lower 256 bytes of ROM.
+     * is pointed to Empty until the RAM is enabled. If Boot ROM is enabled
+     * (default) the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override {
         _rom_bank->set_ram(_ram);

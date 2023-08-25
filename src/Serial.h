@@ -41,7 +41,7 @@ protected:
      uint8_t      _out;                /**< Character output */
      uint8_t      _in;                 /**< Next character to read */
      int          _count;              /**< Current bit count */
-     bool         _xfer;               /**< Tranfer in progress */
+     bool         _xfer;               /**< Transfer in progress */
      bool         _clock;              /**< Clock internal/external */
      int          _inter;              /**< Interval timer */
 
@@ -90,7 +90,7 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
                    _out |= 1;
                 }
                 if (++_count == 8) {
-                   /* Select data regiser */
+                   /* Select data register */
                    std::cerr << (char)_out;
                    _count = 0;
                    _xfer = false;
@@ -111,7 +111,7 @@ if (trace_flag) {printf("Serial %02x< %02x <%02x %d\n", _out, _buffer, _out, _co
       */
      virtual void read_reg(uint8_t &data, uint16_t addr) const override {
          if (addr & 1) {
-             /* Select data regiser */
+             /* Select data register */
              data = _buffer;
          } else {
              /* Select control register */

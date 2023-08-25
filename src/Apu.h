@@ -47,12 +47,12 @@
  *
  * Each channel also has a length counter which is used for decremented
  * at a rate of 256hz. When this counter reaches zero audio output stops
- * If the sound generator is started without using a lenght the counter
+ * If the sound generator is started without using a length the counter
  * is loaded with the max value.
  *
- * Each channel also has a volume envolope generator. This will either
+ * Each channel also has a volume envelop generator. This will either
  * increase of decrease the volume at a rate of 64hz. When the volume
- * reaches 15 or 0 the envolope stops operating.
+ * reaches 15 or 0 the envelop stops operating.
  *
  * Channel 1 has a frequency sweep function which adjusts the frequency
  * counter at a rate of 128hz. The frequency can be shifted up or down
@@ -60,317 +60,176 @@
  */
 class Sound {
 protected:
-     uint8_t    _wave[32];      /**< Pointer to wave data */
-     uint16_t   _freq_cnt;      /**< Frequency counter */
-     int        _wave_start;    /**< Where to start wave playback */
-     int        _wave_end;      /**< End of wave playback */
-     int        _int_freq;      /**< Initial frequency counter */
-     int        _count;         /**< Current frequencey counter */
-     int        _length;        /**< Length in 1/64th of a second */
-     int        _max_length;    /**< Max length value */
-     int        _int_len;       /**< Initial value of length */
-     bool       _use_len;       /**< Use length value */
-     int        _pos;           /**< Current position in playback */
-     int        _volume;        /**< Current output volume */
-     int        _int_vol;       /**< Initial volume */
-     int        _int_vol_len;   /**< Initial volume length */
-     int        _vol_sweep;     /**< Volume sweep */
-     int        _vol_dir;       /**< Sweep direction */
-     int        _vol_len;       /**< Length of volume envolope */
-     bool       _vol_env;       /**< Do volume envolope */
-     int        _duty;          /**< Duty cycle */
-     uint8_t    _chan;          /**< Channel number */
-     bool       _dac_enable;    /**< Channel's DAC is disabled */
-     bool       _delay;         /**< One cycle delay after trigger */
+    uint8_t    _wave[32];      /**< Pointer to wave data */
+    uint16_t   _freq_cnt;      /**< Frequency counter */
+    int        _wave_start;    /**< Where to start wave playback */
+    int        _wave_end;      /**< End of wave playback */
+    uint16_t   _int_freq;      /**< Initial frequency counter */
+    int        _count;         /**< Current frequency counter */
+    int        _length;        /**< Length in 1/64th of a second */
+    int        _max_length;    /**< Max length value */
+    int        _int_len;       /**< Initial value of length */
+    bool       _use_len;       /**< Use length value */
+    int        _pos;           /**< Current position in playback */
+    uint8_t    _volume;        /**< Current output volume */
+    uint8_t    _int_vol;       /**< Initial volume */
+    uint8_t    _int_vol_len;   /**< Initial volume length */
+    int        _vol_sweep;     /**< Volume sweep */
+    int        _vol_dir;       /**< Sweep direction */
+    int        _vol_len;       /**< Length of volume envelop */
+    bool       _vol_env;       /**< Do volume envelop */
+    uint8_t    _duty;          /**< Duty cycle */
+    uint8_t    _chan;          /**< Channel number */
+    bool       _dac_enable;    /**< Channel's DAC is disabled */
+    bool       _delay;         /**< One cycle delay after trigger */
 
-     const static uint8_t sq_wave[32];
-     const static uint8_t int_wave[32];
+    const static uint8_t sq_wave[32];
+    const static uint8_t int_wave[32];
 public:
-     bool       enabled;     /**< Channel enabled */
-     bool       active;      /**< Sound currently playing */
-     uint8_t    sample;      /**< Current output value */
+    bool       enabled;     /**< Channel enabled */
+    bool       active;      /**< Sound currently playing */
+    int8_t     sample;      /**< Current output value */
 
-     Sound() : enabled(false), active(false), sample(0) {
-          _freq_cnt = _int_freq = _count = _length = _int_len = 0;
-          _chan = 0;
-          _pos = _volume = _int_vol = _int_vol_len = 0;
-          _vol_sweep = _vol_dir = _vol_len = _duty = 0;
-          _dac_enable = false;
-          _delay = _use_len = _vol_env = false;
-          _wave_start = 0;
-          _wave_end = 8;
-          _max_length = 64;
-          for (int i = 0; i < 32; i++) {
-              _wave[i] = sq_wave[i];
-          }
-     }
-
-     /**
-      * @brief Start playing a sound.
-      *
-      * Set initial frequency, length and volume.
-      */
-      virtual void start(bool trigger, bool master_enable,
-                         bool prev_use_len, bool next_frame_length) {
-         /* If enableing use length and we are currently in length update, there
-          * is an extra clock pulse to length counter
-          */
-         if (!prev_use_len && _use_len && next_frame_length && _length != 0) {
-             _length--;
-             /* If this sets length counter to zero disable channel */
-             if (!trigger && _length == 0) {
-                 active = false;
-             }
+    Sound() : enabled(false), active(false), sample(0) {
+         _freq_cnt = _int_freq = 0;
+         _pos = _count = _length = _int_len = 0;
+         _volume = _int_vol = _int_vol_len = 0;
+         _vol_sweep = _vol_dir = _vol_len = _duty = 0;
+         _dac_enable = false;
+         _delay = _use_len = _vol_env = false;
+         _chan = 0;
+         _wave_start = 0;
+         _wave_end = 8;
+         _max_length = 64;
+         for (int i = 0; i < 32; i++) {
+             _wave[i] = sq_wave[i];
          }
+    }
 
-         /* On triggering */
-         if (trigger) {
-             /* If length is currently zero force to max length */
-             if (_length == 0) {
-                 _length = _max_length;
-                 /* If length enabled and currently updating length, extra
-                  * clock cycle */
-                 if (_use_len && next_frame_length) {
-                     _length--;
-                 }
-             }
-             /* If triggered and enable, start channel */
-             if (_dac_enable) {
-                active = true;
-             }
+    /**
+     * @brief Start playing a sound.
+     *
+     * Set initial frequency, length and volume.
+     */
+     virtual void start(bool trigger,
+                        bool prev_use_len, bool next_frame_length);
 
-             /* Load initial and shadow frequency */
-             _freq_cnt = _int_freq;
+    /**
+     * @brief reset channel.
+     *
+     * Stops any channel activity and set it to default state.
+     */
+    virtual void reset();
 
-             /* Set initial frequency and length to play */
-             sample = _wave[_pos];
-             _volume = _int_vol;
-             _pos = _wave_start;
-             if (_int_vol_len != 0) {
-                 _vol_len = _int_vol_len;
-                 _vol_env = true;
-             } else {
-                 _vol_len = 0;
-                 _vol_env = false;
-             }
-             _delay = true;
-         }
-     }
+    /**
+     * @brief Update channels length counter.
+     *
+     * Clock up length counter until it overflows, then stop channel.
+     * If not enabled or not using length, do nothing.
+     */
+    virtual void update_length();
 
-     /**
-      * @brief reset channel.
-      *
-      * Stops any channel activity and set it to default state.
-      */
-     virtual void reset() {
-         active = false;
-         write_reg0(0);
-         write_reg1(0);
-         write_reg2(0);
-         write_reg3(0);
-         write_reg4(0,false,0);
-     }
+    /**
+     * @brief Update channels volume sweep.
+     */
+    virtual void update_volume();
 
-     /**
-      * @brief Update channels length counter.
-      *
-      * Clock up length counter until it overflows, then stop channel.
-      * If not enabled or not using length, do nothing.
-      */
-     virtual void update_length() {
-         if (_use_len && _length != 0 && --_length <= 0) {
-             if (active) {
-                 active = false;
-                 sample = 0;
-                 _vol_env = false;
-             }
-             _length = 0;
-         }
-     }
+    /**
+     * @brief Update channels frequency  sweep.
+     *
+     * Called to update the frequency at frequency sweep time. This is
+     * only defined for channel 1.
+     */
+    virtual void update_sweep();
 
-     /**
-      * @brief Update channels volume sweep.
-      */
-     virtual void update_volume() {
-         if (active && _vol_env) {
-             if (_vol_len != 0) {
-                 _vol_len--;
-             } else {
-                  int new_vol;
-                  if (_vol_dir) {
-                      new_vol = _volume + 1;
-                  } else {
-                      new_vol = _volume - 1;
-                  }
-                  if (new_vol >= 0 && new_vol <= 15) {
-                      _volume = new_vol;
-                      _vol_len = _int_vol_len;
-                  } else {
-                      _vol_env = false;
-                  }
-             }
-         }
-     }
+    /**
+     * @brief Update frequency sequence counter for one clock pulse.
+     *
+     * We count the timer up until it overflows. At which time we select the
+     * next wave sample and advance the sample, then we reset the timer.
+     * Otherwise just wait until it overflows.
+     */
+    virtual void cycle();
 
-     /**
-      * @brief Update channels frequency  sweep.
-      *
-      * Called to update the frequency at frequency sweep time. This is
-      * only defined for channel 1.
-      */
-     virtual void update_sweep() {
-     }
+    /**
+     * @brief read register 0.
+     *
+     * Frequency sweep shift register.
+     */
+    virtual void read_reg0(uint8_t& data) const {
+        data = 0xff;
+    }
 
-     /**
-      * @brief Update frequence counter for one clock pulse.
-      *
-      * We count the timer up until it overflows. At which time we select the
-      * next wave sample and advance the sample, then we reset the timer. Otherwise
-      * just wait until it overflows.
-      */
-     virtual void cycle() {
-         if (_delay) {
-             _delay = false;
-             return;
-         }
-         if (active) {
-             if (_freq_cnt & 0x800) {
-                 _freq_cnt = _int_freq;
-                 _pos++;
-                 if (_pos == _wave_end) {
-                     _pos = _wave_start;
-                 }
-                 if (_dac_enable) {
-                     sample = _wave[_pos] * _volume;
-                 } else {
-                     sample = 0;
-                 }
-                 _delay = true;
-             } else {
-                 _freq_cnt++;
-             }
-         } else {
-             sample = 0;
-         }
-     }
+    /**
+     * @brief read register 1.
+     *
+     * Sound length register.
+     */
+    virtual void read_reg1(uint8_t& data) const {
+        data = (_duty << 6) | 0x3f;
+    }
 
-     /**
-      * @brief read register 0.
-      *
-      * Frequency sweep shift register.
-      */
-     virtual void read_reg0(uint8_t& data) const {
-         data = 0xff;
-     }
+    /**
+     * @brief read register 2.
+     *
+     * Volume envelop register.
+     */
+    virtual void read_reg2(uint8_t& data) const {
+        data = (_int_vol << 4) | (_vol_dir ? 0x8:0x0) | _int_vol_len;
+    }
 
-     /**
-      * @brief read register 1.
-      *
-      * Sound length register.
-      */
-     virtual void read_reg1(uint8_t& data) const {
-         data = (_duty << 6) | 0x3f;
-     }
+    /**
+     * @brief read register 3.
+     *
+     * Frequency register lower.
+     */
+    virtual void read_reg3(uint8_t& data) const {
+        data = 0xff;
+    }
 
-     /**
-      * @brief read register 2.
-      *
-      * Volume envolope register.
-      */
-     virtual void read_reg2(uint8_t& data) const {
-         data = (_int_vol << 4) | (_vol_dir ? 0x8:0x0) | _int_vol_len;
-     }
+    /**
+     * @brief read register 4.
+     *
+     * Frequency register upper.
+     */
+    virtual void read_reg4(uint8_t& data) const {
+        data = (_use_len) ? 0xff : 0xbf;
+    }
 
-     /**
-      * @brief read register 3.
-      *
-      * Frequency register lower.
-      */
-     virtual void read_reg3(uint8_t& data) const {
-         data = 0xff;
-     }
+    /**
+     * @brief write register 0.
+     *
+     * Frequency sweep shift register.
+     */
+    virtual void write_reg0(uint8_t data);
 
-     /**
-      * @brief read register 4.
-      *
-      * Frequency register upper.
-      */
-     virtual void read_reg4(uint8_t& data) const {
-         data = (_use_len) ? 0xff : 0xbf;
-     }
+    /**
+     * @brief write register 1.
+     *
+     * Sound length register.
+     */
+    virtual void write_reg1(uint8_t data);
 
-     /**
-      * @brief write register 0.
-      *
-      * Frequency sweep shift register.
-      */
-     virtual void write_reg0(uint8_t data) {
-     }
+    /**
+     * @brief write register 2.
+     *
+     * Volume envelop register.
+     */
+    virtual void write_reg2(uint8_t data);
 
-     /**
-      * @brief write register 1.
-      *
-      * Sound length register.
-      */
-     virtual void write_reg1(uint8_t data) {
-         if (!enabled) {
-             return;
-         }
-         _length = _max_length - (data & 0x3f);
-         _duty = (data >> 6) & 3;
-         _wave_start = (_duty << 3);
-         _wave_end = (_duty << 3) + 8;
-     }
+    /**
+     * @brief write register 3.
+     *
+     * Frequency register lower.
+     */
+    virtual void write_reg3(uint8_t data);
 
-     /**
-      * @brief write register 2.
-      *
-      * Volume envolope register.
-      */
-     virtual void write_reg2(uint8_t data) {
-         if (!enabled) {
-             return;
-         }
-         _int_vol = (data >> 4) & 0xf;
-         _vol_dir = (data & 0x8) != 0;
-         _int_vol_len = (data & 07);
-         if (_int_vol == 0 && _vol_dir == 0) {
-             active = false;
-             _dac_enable = false;
-         } else {
-             _dac_enable = true;
-         }
-     }
-
-     /**
-      * @brief write register 3.
-      *
-      * Frequency register lower.
-      */
-     virtual void write_reg3(uint8_t data) {
-         if (!enabled) {
-             return;
-         }
-         _int_freq = (_int_freq & 0x700) | ((int)data & 0xff);
-     }
-
-     /**
-      * @brief write register 4.
-      *
-      * Frequency register upper.
-      */
-     virtual void write_reg4(uint8_t data, bool master_enable, int next_length) {
-         if (!enabled) {
-             return;
-         }
-         bool prev_use_len = _use_len;
-         bool trigger = ((data & 0x80) != 0);
-         bool next_frame_length = (next_length & 1) != 0;
-         _int_freq = (((int)(data & 7) << 8) & 0x700) | (_int_freq & 0xff);
-         _use_len = (data & 0x40) != 0;
-         start(trigger, master_enable, prev_use_len, next_frame_length);
-     }
-
+    /**
+     * @brief write register 4.
+     *
+     * Frequency register upper.
+     */
+    virtual void write_reg4(uint8_t data, int next_length);
 };
 
 /**
@@ -401,19 +260,21 @@ public:
  * are set to play a square wave.
  */
 class S1 : public S2 {
-     int     _sweep_freq;   /**< Sweep frequence */
-     int     _sweep_period; /**< Frequency sweep interval */
-     int     _sweep_clk;    /**< Frequency sweep clock */
-     bool    _sweep_dir;    /**< Direction of frequence sweep */
-     int     _sweep_shift;  /**< Number of steps */
-     bool    _shift_ena;    /**< Enable frequency shift */
-     bool    _last_sub;     /**< Last update was subtract */
-     uint8_t _reg0;         /**< Backup copy of register 0 */
+     uint16_t  _sweep_freq;   /**< Sweep frequency */
+     int       _sweep_period; /**< Frequency sweep interval */
+     int       _sweep_clk;    /**< Frequency sweep clock */
+     bool      _sweep_dir;    /**< Direction of frequency sweep */
+     int       _sweep_shift;  /**< Number of steps */
+     bool      _shift_ena;    /**< Enable frequency shift */
+     bool      _last_sub;     /**< Last update was subtract */
+     uint8_t   _reg0;         /**< Backup copy of register 0 */
 public:
 
      S1() : S2() {
           _chan = 1;
-          _reg0 = _sweep_freq = _sweep_period = _sweep_shift = _sweep_clk = 0;
+          _sweep_freq = 0;
+          _reg0 = 0;
+          _sweep_period = _sweep_shift = _sweep_clk = 0;
           _sweep_dir = _shift_ena = _last_sub = false;
      }
 
@@ -426,16 +287,7 @@ public:
       *
       * @return Then next frequency.
       */
-     uint16_t next_freq() {
-         int new_freq = _sweep_freq >> _sweep_shift;
-         if (_sweep_dir) {
-              new_freq = _sweep_freq - new_freq;
-              _last_sub = true;
-         } else {
-              new_freq = _sweep_freq + new_freq;
-         }
-         return new_freq;
-     }
+     uint16_t next_freq();
 
      /**
       * @brief Update frequency.
@@ -447,39 +299,12 @@ public:
       * value from initial frequency. If we overflow or under
       * flow set frequency to zero and stop the playback.
       */
-     void update_step() {
-         int new_freq = next_freq();
-         if (new_freq >= 2048) {
-             active = false;
-             _shift_ena = false;
-             sample = 0;
-         } else {
-             if (_sweep_shift) {
-                 _int_freq = _sweep_freq = new_freq;
-             }
-             if (next_freq() >= 2048) {
-                 active = false;
-                 _shift_ena = false;
-                 sample = 0;
-             }
-         }
-     }
+     void update_step();
 
      /**
       * @brief Update channels frequency  sweep.
       */
-     virtual void update_sweep() override {
-         if (active && _shift_ena) {
-              if (--_sweep_clk == 0) {
-                 if (_sweep_period != 0) {
-                     _sweep_clk = _sweep_period;
-                     update_step();
-                 } else {
-                     _sweep_clk = 8;
-                 }
-             }
-         }
-     }
+     virtual void update_sweep() override;
 
      /**
       * @brief read register 0.
@@ -496,67 +321,23 @@ public:
       *
       * Frequency sweep shift register.
       */
-     virtual void write_reg0(uint8_t data) override {
-         if (!enabled) {
-             return;
-         }
-         _reg0 = data;
-         bool old_dir = _sweep_dir;
-         _sweep_dir = (data & 0x8) != 0;
-         _sweep_shift = data & 0x7;
-         _sweep_period = (data >> 4) & 7;
-         if (old_dir && !_sweep_dir && _last_sub) {
-             _shift_ena = false;
-             active = false;
-         }
-     }
-
-     /**
-      * @brief write register 3.
-      *
-      * Frequency register lower.
-      */
-     virtual void write_reg3(uint8_t data) override {
-         if (!enabled) {
-             return;
-         }
-         _int_freq = (_int_freq & 0x700) | ((int)data & 0xff);
-     }
+     virtual void write_reg0(uint8_t data) override;
 
      /**
       * @brief write register 4.
       *
       * Frequency register upper.
       *
-      * When next step does not change Length counter, if previously disabled and
-      * now enabled and counter != 0, decrement. If length == 0, disable channel.
+      * When next step does not change Length counter, if previously disabled
+      * and now enabled and counter != 0, decrement. If length == 0, disable
+      * channel.
       *
       * When triggered if length == 0, set to max length.
       *
       * When triggering, and next does not change length counter, and length
       * is now enabled and length is being set to max length, decrement counter.
       */
-     virtual void write_reg4(uint8_t data, bool master_enable, int next_length) override {
-         if (!enabled) {
-             return;
-         }
-         bool prev_use_len = _use_len;
-         bool trigger = ((data & 0x80) != 0);
-         bool next_frame_length = (next_length & 1) != 0;
-         _int_freq = (((int)(data & 7) << 8) & 0x700) | (_int_freq & 0xff);
-         _sweep_freq = _int_freq;
-         _use_len = (data & 0x40) != 0;
-         start(trigger, master_enable, prev_use_len, next_frame_length);
-         if (trigger && active) {
-             _shift_ena = (_sweep_shift != 0) || (_sweep_period != 0);
-             _sweep_clk = (_sweep_period != 0) ?_sweep_period : 8;
-             _last_sub = false;
-             if (_sweep_shift != 0 && next_freq() >= 2048) {
-                 _shift_ena = false;
-                 active = false;
-             }
-         }
-     }
+     virtual void write_reg4(uint8_t data, int next_length) override;
 };
 
 /**
@@ -566,12 +347,12 @@ public:
  *
  * Sound Channel 3 is the same as sound channel 2, only it
  * plays a 32 sample wave which can be loaded by the CPU. It also
- * lacks a volume envolope.
+ * lacks a volume envelop.
  */
 class S3 : public Sound {
      bool     _chan_ena;      /**< Indicates if channel is enabled or not */
      uint8_t  _last_read;     /**< Last wave table read sample */
-     int      _out_vol;       /**< Output volume */
+     uint8_t  _out_vol;       /**< Output volume */
 public:
      S3() {
           _chan = 3;
@@ -595,11 +376,11 @@ public:
      }
 
      /**
-      * @brief Update frequence counter for one clock pulse.
+      * @brief Update frequency counter for one clock pulse.
       *
       * We count the timer up until it overflows. At which time we select the
-      * next wave sample and advance the sample, then we reset the timer. Otherwise
-      * just wait until it overflows.
+      * next wave sample and advance the sample, then we reset the timer.
+      * Otherwise just wait until it overflows.
       */
      void early_cycle() {
          if (!_delay) {
@@ -644,45 +425,21 @@ public:
       *
       * Frequency sweep shift register.
       */
-     virtual void write_reg0(uint8_t data) override {
-         if (!enabled) {
-             return;
-         }
-         if ((data & 0x80) == 0) {
-             active = false;
-             _dac_enable = false;
-             _chan_ena = false;
-         } else {
-             _dac_enable = true;
-             _chan_ena = true;
-         }
-     }
+     virtual void write_reg0(uint8_t data) override;
 
      /**
       * @brief write register 1.
       *
       * Sound length register.
       */
-     virtual void write_reg1(uint8_t data) override {
-         if (!enabled) {
-             return;
-         }
-         _length = _max_length - (data & 0xff);
-     }
+     virtual void write_reg1(uint8_t data) override;
 
      /**
       * @brief write register 2.
       *
       * Output volume
       */
-     virtual void write_reg2(uint8_t data) override {
-         static const int vol_mul[4] = { 0, 0x10, 0x08, 0x04 };
-         if (!enabled) {
-             return;
-         }
-         _out_vol = (data >> 5) & 0x3;
-         _int_vol = vol_mul[_out_vol];
-     }
+     virtual void write_reg2(uint8_t data) override;
 
      /**
       * @brief read wave register.
@@ -693,38 +450,18 @@ public:
       * param[out] data   Value of wave at index.
       * param[in]  addr   Index to read.
       */
-      void read_wave(uint8_t& data, uint16_t index) const {
-           if (active) {
-             uint8_t last_read = 0xff;
-             if (_freq_cnt == 0x7ff) {
-                  int pos = (_pos) & 0x1e;
-                  last_read = (_wave[pos] << 4);
-                  last_read |= _wave[pos | 1];
-             }
-              data = last_read;
-           } else {
-               index <<= 1;
-               data = _wave[index] << 4;
-               data |= _wave[index | 1];
-           }
-      }
+      void read_wave(uint8_t& data, uint16_t index) const;
 
      /**
       * @brief write wave register.
       *
       * The wave register is store expanded to two samples, so
-      * they have to be split appart and shifted for writing.
+      * they have to be split apart and shifted for writing.
       *
       * param[out] data   Value of wave at index.
       * param[in]  addr   Index to read.
       */
-      void write_wave(uint8_t data, uint16_t index) {
-           if (active)
-              return;
-           index <<= 1;
-           _wave[index] = (data >> 4) & 0xf;
-           _wave[index | 1] = (data & 0xf);
-      }
+      void write_wave(uint8_t data, uint16_t index);
 };
 
 /**
@@ -733,7 +470,7 @@ public:
  * @class S4 Apu.h "Apu.h"
  *
  * Sound Channel 4 lacks a frequency generator or a wave table. It
- * outputs a psuedo random stream to simulate noise (LSFR). Instead of a
+ * outputs a pseudo random stream to simulate noise (LSFR). Instead of a
  * frequency divider, channel 4 has a simple divider the controls
  * when the LSFR should generate a new sample. The LSFR is a shift
  * register that is initialized to a random value, and each time it is
@@ -759,7 +496,7 @@ public:
           _clk_cnt = 0;
           _duty = 3;
           _reg3 = 0;
-          std::srand(std::time(nullptr));
+          std::srand((unsigned int)std::time(nullptr));
           int seed = std::rand();
 
           _shift_reg = (seed >> 10) & 0x7fff;
@@ -770,13 +507,7 @@ public:
       *
       * Stops any channel activity and set it to default state.
       */
-     virtual void reset() override {
-         active = false;
-         write_reg0(0);
-         write_reg2(0);
-         write_reg3(0);
-         write_reg4(0,false,0);
-     }
+     virtual void reset() override;
 
      /**
       * @brief simulate the noise shift register.
@@ -786,50 +517,16 @@ public:
       * left. The top two bits (15,14) or (7,6) are compared and fed into lowest
       * bit of shift register. Bit 15 or 7 is taken as the output.
       */
-     void shift() {
-         _shift_reg <<= 1;
-         if (_steps) {
-             _shift_reg |= ((_shift_reg >> 6) ^ (_shift_reg >> 7)) & 1;
-             /* Copy output to upper bit */
-             _shift_reg &= 0x7fff;
-             _shift_reg |= (_shift_reg << 8) & 0x8000;
-         } else {
-             _shift_reg |= ((_shift_reg >> 14) ^ (_shift_reg >> 15)) & 1;
-         }
-         if (_dac_enable) {
-             sample = ((_shift_reg & 0x8000) ? 0x10: 0x00) * _volume;
-         } else {
-             sample = 0;
-         }
-     }
+     void shift();
 
      /**
-      * @brief Update frequence counter for one clock pulse.
+      * @brief Update frequency counter for one clock pulse.
       *
-      * If the divide ratio reachs zero. We reset the divide ratio, then if the
-      * polynomial counter clock reached zero we generate and output and reset the
-      * counter clock to 2^n.
+      * If the divide ratio reaches zero. We reset the divide ratio, then if
+      * the polynomial counter clock reached zero we generate and output and
+      * reset the counter clock to 2^n.
       */
-     virtual void cycle() override {
-         if (_delay) {
-             _delay = false;
-             return;
-         }
-         if (active) {
-             if (_div == 0) {
-                 /* Do clocking */
-                 _div = _div_ratio;
-                 if (_clk_cnt == 0) {
-                     shift();
-                     _clk_cnt = (1 << _clk_freq) & 0x3fff;
-                 } else {
-                     _clk_cnt--;
-                 }
-             } else {
-                 _div--;
-             }
-         }
-     }
+     virtual void cycle() override;
 
      /**
       * @brief read register 1.
@@ -854,44 +551,21 @@ public:
       *
       * Sound length register.
       */
-     virtual void write_reg1(uint8_t data) override {
-         _length = _max_length - (data & 0x3f);
-     }
+     virtual void write_reg1(uint8_t data) override;
 
      /**
       * @brief write register 3.
       *
       * Divider register.
       */
-     virtual void write_reg3(uint8_t data) override {
-         if (!enabled) {
-             return;
-         }
-         _reg3 = data;
-         _clk_freq = (data >> 4) & 0xf;
-         _steps = (data & 0x8) != 0;
-         _div_ratio = (data & 07);
-     }
+     virtual void write_reg3(uint8_t data) override;
 
      /**
       * @brief read register 4.
       *
       * Frequency register upper.
       */
-     virtual void write_reg4(uint8_t data, bool master_enable, int next_length) override {
-         if (!enabled) {
-             return;
-         }
-         bool prev_use_len = _use_len;
-         bool trigger = ((data & 0x80) != 0);
-         bool next_frame_length = (next_length & 1) != 0;
-         _use_len = (data & 0x40) != 0;
-         start(trigger, master_enable, prev_use_len, next_frame_length);
-         if (trigger && active) {
-             _div = _div_ratio;
-             _clk_cnt = (1 << _clk_freq) & 0x3fff;
-         }
-     }
+     virtual void write_reg4(uint8_t data, int next_length) override;
 };
 
 /**
@@ -976,8 +650,8 @@ public:
  *              101:   fx1/2^2x1/5
  *              110:   fx1/2^2x1/6
  *              111:   fx1/2^2x1/7
- *          Bit 3      Selects number of polynomal 0=15,1=7
- *          Bit 2-0    Division ratio frequence.
+ *          Bit 3      Selects number of ppolynomial0=15,1=7
+ *          Bit 2-0    Division ratio ffrequency
  *
  * NR44     Bit 7      Initialize.
  *          Bit 6      Counter/Continuous.
@@ -1033,69 +707,7 @@ public:
      * Every 32 cycles sample the output of each channel. Then call
      * each channels cycle function to update their frequency count.
      */
-    void cycle() override {
-       _sample_cnt++;
-       if (_sample_cnt == 32) {
-           /* Generate a audio sample */
-           SO1 = SO2 = 0;
-           if (regs[1] & 0x01) {
-              SO1 += (s1.sample >> 2);
-           }
-           if (regs[1] & 0x02) {
-              SO1 += (s2.sample >> 2);
-           }
-           if (regs[1] & 0x04) {
-              SO1 += (s3.sample >> 2);
-           }
-           if (regs[1] & 0x08) {
-              SO1 += (s4.sample >> 2);
-           }
-           if (regs[1] & 0x10) {
-              SO2 += (s1.sample >> 2);
-           }
-           if (regs[1] & 0x20) {
-              SO2 += (s2.sample >> 2);
-           }
-           if (regs[1] & 0x40) {
-              SO2 += (s3.sample >> 2);
-           }
-           if (regs[1] & 0x80) {
-              SO2 += (s4.sample >> 2);
-           }
-           /* Compute volume of samples */
-           switch ((regs[0] >> 4) & 07) {
-           case 0:   SO1 = 0; break;
-           case 1:   SO1 = SO1 >> 4; break;
-           case 2:   SO1 = SO1 >> 2; break;
-           case 3:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
-           case 4:   SO1 = SO1 >> 1; break;
-           case 5:   SO1 = (SO1 >> 1) + (SO1 >> 2); break;
-           case 6:   SO1 = (SO1 >> 1) + (SO1 >> 2) + (SO1 >> 4); break;
-           case 7:   break;
-           }
-           switch (regs[0] & 07) {
-           case 0:   SO1 = 0; break;
-           case 1:   SO1 = SO1 >> 4; break;
-           case 2:   SO1 = SO1 >> 2; break;
-           case 3:   SO1 = (SO1 >> 2) + (SO1 >> 4); break;
-           case 4:   SO1 = SO1 >> 1; break;
-           case 5:   SO1 = (SO1 >> 1) + (SO1 >> 2); break;
-           case 6:   SO1 = (SO1 >> 1) + (SO1 >> 2) + (SO1 >> 4); break;
-           case 7:   break;
-           }
-           /* Output the sample */
-           audio_output(SO1, SO2);
-           _sample_cnt = 0;
-       }
-       /* If not enabled, nothing left to do */
-       if (!_enabled) {
-           return;
-       }
-       s1.cycle();               /* Cycle channel clock */
-       s2.cycle();               /* Cycle channel clock */
-       s3.cycle();               /* Channel 2 is clocked 2 times speed */
-       s4.cycle();               /* Cycle channel clock */
-    }
+    void cycle() override;
 
     /**
      * @brief Called 512 times per second to update the sequencer.
@@ -1104,31 +716,7 @@ public:
      * cycles we call update sweep.
      *
      */
-    void cycle_sound() {
-        if (!_enabled) {
-            return;
-        }
-        switch(_fr_counter++) {
-        case 2:
-        case 6:    s1.update_sweep();
-                   /* Fall through */
-                   [[fallthrough]];
-        case 0:
-        case 4:    s1.update_length();
-                   s2.update_length();
-                   s3.update_length();
-                   s4.update_length();
-                   break;
-        case 1:
-        case 3:    /* Nothing to update */
-                   break;
-        case 7:    s1.update_volume();
-                   s2.update_volume();
-                   s4.update_volume();
-                   _fr_counter = 0;
-                   break;
-        }
-    }
+    void cycle_sound();
 
     /**
       * @brief Address of APU unit.
@@ -1151,7 +739,7 @@ public:
     /**
      * @brief Audio Processor Unit register read.
      *
-     * Read chanel registers. Each channel implements
+     * Read channel registers. Each channel implements
      * an individual read for each register. By use
      * of virtual functions channels can return the
      * correct value along with any stuck bits.
@@ -1159,104 +747,12 @@ public:
      * @param[out] data Data read from register.
      * @param[in] addr Address of register to read.
      */
-    virtual void read_reg(uint8_t &data, uint16_t addr) const override {
-        switch(addr & 0xff) {
-        case 0x10:    /* NR 10 */
-                      s1.read_reg0(data);
-                      break;
-        case 0x11:    /* NR 11 */
-                      s1.read_reg1(data);
-                      break;
-        case 0x12:    /* NR 12 */
-                      s1.read_reg2(data);
-                      break;
-        case 0x13:    /* NR 13 */
-                      s1.read_reg3(data);
-                      break;
-        case 0x14:    /* NR 14 */
-                      s1.read_reg4(data);
-                      break;
-        case 0x15:    /* NR 20 Unused */
-                      s2.read_reg0(data);
-                      break;
-        case 0x16:    /* NR 21 */
-                      s2.read_reg1(data);
-                      break;
-        case 0x17:    /* NR 22 */
-                      s2.read_reg2(data);
-                      break;
-        case 0x18:    /* NR 23 */
-                      s2.read_reg3(data);
-                      break;
-        case 0x19:    /* NR 24 */
-                      s2.read_reg4(data);
-                      break;
-        case 0x1A:    /* NR 30 */
-                      s3.read_reg0(data);
-                      break;
-        case 0x1B:    /* NR 31 */
-                      s3.read_reg1(data);
-                      break;
-        case 0x1C:    /* NR 32 */
-                      s3.read_reg2(data);
-                      break;
-        case 0x1D:    /* NR 33 */
-                      s3.read_reg3(data);
-                      break;
-        case 0x1E:    /* NR 34 */
-                      s3.read_reg4(data);
-                      break;
-        case 0x1F:    /* NR 40 Unused */
-                      s4.read_reg0(data);
-                      break;
-        case 0x20:    /* NR 41 */
-                      s4.read_reg1(data);
-                      break;
-        case 0x21:    /* NR 42 */
-                      s4.read_reg2(data);
-                      break;
-        case 0x22:    /* NR 43 */
-                      s4.read_reg3(data);
-                      break;
-        case 0x23:    /* NR 44 */
-                      s4.read_reg4(data);
-                      break;
-        case 0x24:    /* NR 50 */
-        case 0x25:    /* NR 51 */
-                      data = regs[addr & 1];
-                      break;
-        case 0x26:    /* NR 52 */
-                      data = (_enabled << 7) | 0x70;
-                      data |= (s1.active << 0);
-                      data |= (s2.active << 1);
-                      data |= (s3.active << 2);
-                      data |= (s4.active << 3);
-                      break;
-        case 0x27:    /* Unused */
-        case 0x28:    /* Unused */
-        case 0x29:    /* Unused */
-        case 0x2A:    /* Unused */
-        case 0x2B:    /* Unused */
-        case 0x2C:    /* Unused */
-        case 0x2D:    /* Unused */
-        case 0x2E:    /* Unused */
-        case 0x2F:    /* Unused */
-                      data = 0xff;
-                      break;
-        case 0x30: case 0x31: case 0x32: case 0x33:
-        case 0x34: case 0x35: case 0x36: case 0x37:
-        case 0x38: case 0x39: case 0x3A: case 0x3B:
-        case 0x3C: case 0x3D: case 0x3E: case 0x3F:
-                     s3.read_wave(data, addr & 0xf);
-                     break;
-        }
- if (trace_flag) printf("Read %02x %02x\n", (addr & 0xff), data);
-    }
+    virtual void read_reg(uint8_t &data, uint16_t addr) const override;
 
     /**
      * @brief Audio Processor Unit register write.
      *
-     * Write chanel registers. Each channel implements
+     * Write channel registers. Each channel implements
      * an individual write for each register. By use
      * of virtual functions channels can update internal
      * values as they need to.
@@ -1264,111 +760,5 @@ public:
      * @param[in] data Data write to register.
      * @param[in] addr Address of register to write.
      */
-    virtual void write_reg(uint8_t data, uint16_t addr) override {
-if (trace_flag) printf("Write %02x %02x\n", (addr & 0xff), data);
-        switch(addr & 0xff) {
-        case 0x10:    /* NR 10 */  /* Sound data */
-                      s1.write_reg0(data);
-                      break;
-        case 0x11:    /* NR 11 */
-                      s1.write_reg1(data);
-                      break;
-        case 0x12:    /* NR 12 */
-                      s1.write_reg2(data);
-                      break;
-        case 0x13:    /* NR 13 */
-                      s1.write_reg3(data);
-                      break;
-        case 0x14:    /* NR 14 */
-                      s1.write_reg4(data, _enabled, _fr_counter);
-                      break;
-        case 0x15:    /* NR 20  Unused */
-                      s2.write_reg0(data);
-                      break;
-        case 0x16:    /* NR 21 */
-                      s2.write_reg1(data);
-                      break;
-        case 0x17:    /* NR 22 */
-                      s2.write_reg2(data);
-                      break;
-        case 0x18:    /* NR 23 */
-                      s2.write_reg3(data);
-                      break;
-        case 0x19:    /* NR 24 */
-                      s2.write_reg4(data, _enabled, _fr_counter);
-                      break;
-        case 0x1A:    /* NR 30 */
-                      s3.write_reg0(data);
-                      break;
-        case 0x1B:    /* NR 31 */
-                      s3.write_reg1(data);
-                      break;
-        case 0x1C:    /* NR 32 */
-                      s3.write_reg2(data);
-                      break;
-        case 0x1D:    /* NR 33 */
-                      s3.write_reg3(data);
-                      break;
-        case 0x1E:    /* NR 34 */
-                      s3.write_reg4(data, _enabled, _fr_counter);
-                      break;
-        case 0x1F:    /* NR 40 - Unused */
-                      s4.write_reg0(data);
-                      break;
-        case 0x20:    /* NR 41 */
-                      s4.write_reg1(data);
-                      break;
-        case 0x21:    /* NR 42 */
-                      s4.write_reg2(data);
-                      break;
-        case 0x22:    /* NR 43 */
-                      s4.write_reg3(data);
-                      break;
-        case 0x23:    /* NR 44 */
-                      s4.write_reg4(data, _enabled, _fr_counter);
-                      break;
-        case 0x24:    /* NR 50 */
-        case 0x25:    /* NR 51 */
-                      if (_enabled) {
-                          regs[addr&1] = data;
-                      }
-                      break;
-        case 0x26:    /* NR 52 */
-                      /* Check if changing state of enable flag. */
-                      if (_enabled != ((data & 0x80) != 0)) {
-                          _enabled = ((data & 0x80) != 0);
-                          /* Add code to clear register if not enabled */
-                          if (!_enabled) {
-                             s1.reset();
-                             s2.reset();
-                             s3.reset();
-                             s4.reset();
-                             regs[0] = 0;
-                             regs[1] = 0;
-                             _fr_counter = 0;
-                          }
-                          s1.enabled = _enabled;
-                          s2.enabled = _enabled;
-                          s3.enabled = _enabled;
-                          s4.enabled = _enabled;
-                      }
-                      break;
-        case 0x27:    /* Unused */
-        case 0x28:    /* Unused */
-        case 0x29:    /* Unused */
-        case 0x2A:    /* Unused */
-        case 0x2B:    /* Unused */
-        case 0x2C:    /* Unused */
-        case 0x2D:    /* Unused */
-        case 0x2E:    /* Unused */
-        case 0x2F:    /* Unused */
-                      break;
-        case 0x30: case 0x31: case 0x32: case 0x33:
-        case 0x34: case 0x35: case 0x36: case 0x37:
-        case 0x38: case 0x39: case 0x3A: case 0x3B:
-        case 0x3C: case 0x3D: case 0x3E: case 0x3F:
-                     s3.write_wave(data, addr & 0xf);
-                     break;
-        }
-    }
+    virtual void write_reg(uint8_t data, uint16_t addr) override;
 };
