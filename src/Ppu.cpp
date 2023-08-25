@@ -359,6 +359,7 @@ void Ppu::dot_cycle() {
                      _wind_flg = false;
                       cycle_cnt = 0;
                      LY = 0;
+                     init_screen();
                   }
                   _dot_clock = 0;
               }
@@ -541,7 +542,6 @@ void Ppu::display_start() {
        _pix_count--;
        LX--;
    }
-   init_screen();
    _f_state = GETA;
    _f_type = BG;
 }

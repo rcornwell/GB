@@ -167,6 +167,7 @@ public:
         delete svbk;
         delete key;
         delete vbk;
+        delete opri;
         delete hdma;
     }
 

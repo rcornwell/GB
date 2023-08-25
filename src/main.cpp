@@ -226,7 +226,8 @@ int main(int argc, char **argv)
          if (ram_data == NULL) {
              std::cerr << "No data to save" << std::endl;
          } else {
-             std::cout << "Save file: " << ram_size << std::endl;
+             std::cout << "Save file: " << std::dec << ram_size
+                                        << " bytes" << std::endl;
              save_file.open(sav_name, std::ios_base::out|std::ios_base::binary);
              if (!save_file.is_open()) {
                  std::cerr << "Unable to save RAM to: " << sav_name
