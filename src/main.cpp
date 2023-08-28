@@ -57,11 +57,14 @@ const
 SDL_Window       *window;
 SDL_Surface      *icon;
 SDL_Renderer     *render;
+SDL_Texture      *texture;
 SDL_Color         palette[128];
 SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
 SDL_AudioSpec     obtained;
+SDL_PixelFormat  *format;
 
+uint32_t          screen[160*144];
 int8_t            audio_buffer[2048]; /**< Buffer of generated samples */
 int               audio_pos;          /**< Position to write audio samples */
 
@@ -295,10 +298,9 @@ void init_screen()
 void
 draw_screen()
 {
+    SDL_UpdateTexture( texture, 0, screen, 160 * sizeof(uint32_t));
+    SDL_RenderCopy( render, texture, 0, 0);
     SDL_RenderPresent( render );
-    /* Clear display */
-    SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
-    SDL_RenderClear( render);
 }
 
 SDL_Color base_color[4] = {
@@ -348,17 +350,8 @@ set_palette_col(int num, uint8_t data_l, uint8_t data_h)
 void
 draw_pixel(uint8_t pix, int row, int col)
 {
-     SDL_Rect    rect;
-
-     rect.y = row * scale;
-     rect.x = col * scale;
-     rect.h = scale;
-     rect.w = scale;
-     SDL_SetRenderDrawColor(render, palette[pix].r,
-                                    palette[pix].g,
-                                    palette[pix].b,
-                                    palette[pix].a);
-     SDL_RenderFillRect(render, &rect);
+     screen[(row * 160) + col] = SDL_MapRGBA(format,
+             palette[pix].r, palette[pix].g, palette[pix].b, 0xff);
 }
 
 /**
@@ -402,6 +395,9 @@ run_sim()
     POWER = true;
     SDL_PauseAudioDevice(audio_device, 0);
     render = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    texture = SDL_CreateTexture(render, SDL_PIXELFORMAT_RGBA32,
+                    SDL_TEXTUREACCESS_STREAMING, 160, 144);
+    format = SDL_AllocFormat(SDL_PIXELFORMAT_RGBA32);
     SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear( render);
     SDL_RenderPresent( render );
@@ -594,6 +590,8 @@ run_sim()
     }
 
     /* Clean up house */
+    SDL_FreeFormat(format);
+    SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(render);
     SDL_DestroyWindow(window);
     SDL_Quit();
