@@ -135,8 +135,8 @@ public:
      /**
       * @brief Release buttons.
       *
-      * Called by SDL polling routine when a key is released. Clears the bit in
-      * the current button register.
+      * Called by SDL polling routine when a key is released. Clears the bit
+      * in the current button register.
       * @param button Mask of button pressed.
       */
      void release_button(uint8_t button) {

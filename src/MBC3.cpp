@@ -399,7 +399,6 @@ void Cartridge_MBC3::map_cart() {
 
 void Cartridge_MBC3::write(uint8_t data, uint16_t addr) {
     uint32_t    new_bank;
-
     /* Preform bank switching */
     switch (addr >> 13) {
     case 0:          /* 0x0000 - 0x1fff */
@@ -415,8 +414,8 @@ void Cartridge_MBC3::write(uint8_t data, uint16_t addr) {
             break;
     case 1:          /* 0x2000 - 0x3fff */
             /* MBC3   select memory bank */
-            /*       0 - 1F   bank for 0x4000-0x7fff */
-            new_bank = ((uint32_t)(data & 0x7f)) << 14;
+            /*       0 - 7F   bank for 0x4000-0x7fff */
+            new_bank = ((uint32_t)(data & 0xff)) << 14;
             if (new_bank == 0) {
                 new_bank = 0x4000;
             }
