@@ -55,7 +55,7 @@ protected:
 
 public:
 
-     Joypad () : _out_bits(0xc0), _joy_buttons(0) { };
+     Joypad () : _out_bits(0xcf), _joy_buttons(0) { };
 
    /**
       * @brief Address of APU unit.
@@ -84,15 +84,14 @@ public:
       */
      virtual void read_reg(uint8_t &data,
                                 [[maybe_unused]]uint16_t addr) const override {
-         data = _out_bits & 0xF0;
+         data = _out_bits;
 
-         if ((_out_bits & 0x20) != 0) {
-             data |= ((_joy_buttons >> 4) & 0xf);
+         if ((_out_bits & 0x10) == 0) {
+             data ^= ((_joy_buttons >> 4) & 0xf);
          }
-         if ((_out_bits & 0x10) != 0) {
-             data |= (_joy_buttons & 0xf);
+         if ((_out_bits & 0x20) == 0) {
+             data ^= (_joy_buttons & 0xf);
          }
-         data ^= 0xf;
 
      }
 
@@ -105,7 +104,7 @@ public:
       */
      virtual void write_reg(uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {
-         _out_bits = data | 0xc0;
+         _out_bits = data | 0xcf;
      }
 
      /**
@@ -120,10 +119,10 @@ public:
          uint8_t   f = 0;
 
          _joy_buttons |= button;
-         if ((_out_bits & 0x20) != 0) {
+         if ((_out_bits & 0x10) == 0) {
             f |= !(button & 0xf0);
          }
-         if ((_out_bits & 0x10) != 0) {
+         if ((_out_bits & 0x20) == 0) {
             f |= !(button & 0x0f);
          }
 
