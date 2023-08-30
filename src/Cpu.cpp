@@ -1600,7 +1600,11 @@ string Cpu::disassemble(uint8_t ir, uint16_t addr, int &len)
         }
         break;
     case JMP:
-        temp << op->name << " " << std::hex << addr;
+        if (op->len == 3) {
+            temp << op->name << " " << std::hex << addr;
+        } else {
+            temp << op->name << " " << std::hex << (addr & 0xff);
+        }
         break;
     case CCA:
         if (op->len == 3) {
