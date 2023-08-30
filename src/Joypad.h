@@ -87,12 +87,12 @@ public:
          data = _out_bits;
 
          if ((_out_bits & 0x10) == 0) {
-             data ^= ((_joy_buttons >> 4) & 0xf);
+             data |= ((_joy_buttons >> 4) & 0xf);
          }
          if ((_out_bits & 0x20) == 0) {
-             data ^= (_joy_buttons & 0xf);
+             data |= (_joy_buttons & 0xf);
          }
-
+         data ^= 0xf;
      }
 
      /**
@@ -104,7 +104,7 @@ public:
       */
      virtual void write_reg(uint8_t data,
                        [[maybe_unused]]uint16_t addr) override {
-         _out_bits = data | 0xcf;
+         _out_bits = data | 0xc0;
      }
 
      /**
@@ -118,6 +118,7 @@ public:
      void press_button(uint8_t button) {
          uint8_t   f = 0;
 
+         if (trace_flag) { printf("Joy Press %02x\n", button); }
          _joy_buttons |= button;
          if ((_out_bits & 0x10) == 0) {
             f |= !(button & 0xf0);
@@ -139,6 +140,7 @@ public:
       * @param button Mask of button pressed.
       */
      void release_button(uint8_t button) {
+         if (trace_flag) { printf("Joy release %02x\n", button); }
          _joy_buttons &= ~button;
      }
 };
