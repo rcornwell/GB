@@ -87,6 +87,7 @@ Cartridge_RAM *Cartridge_ROM::set_ram([[maybe_unused]]int type,
      case 2:    size = 8*K; break;
      case 3:    size = 32*K; break;
      case 4:    size = 128*K; break;
+     case 5:    size = 64*K; break;
      }
 
      /* If size of RAM is zero, just return. */

@@ -331,6 +331,8 @@ Cartridge_RAM *Cartridge_MBC3::set_ram(int type, uint8_t *ram_data,
      case 1:    size = 2*K; break;
      case 2:    size = 8*K; break;
      case 3:    size = 32*K; break;
+     case 4:    size = 128*K; break;
+     case 5:    size = 64*K; break;
      }
 
      if ((type & TIM) != 0) {
