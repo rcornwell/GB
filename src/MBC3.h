@@ -30,6 +30,8 @@
 #include <iostream>
 #include "Cartridge.h"
 
+class Cartridge_MBC3;
+
 /**
  * @brief Holds cartridge ram if any.
  *
@@ -157,6 +159,72 @@ public:
 };
 
 /**
+ * @brief Holds extra RAM contoller.
+ *
+ * Writes to RAM when disabled can change banking of ROM.
+ */
+class Cartridge_MBC3_dis : public Cartridge_RAM {
+     bool            _latched;
+     uint8_t         _reg;
+     uint8_t         _two;
+
+public:
+     Cartridge_MBC3  *top;
+
+    /**
+     * @brief Create Cartridge RAM space.
+     *
+     * Create RAM space for a Cartridge, size specifies power
+     * of 2 number of bytes to allocation. Also mask off any
+     * un-accessible bits of bank select if RAM is too small to
+     * have banks. This makes RAM bank bits over size to be
+     * effectively ignored.
+     *
+     * @param size Amount in bytes of RAM to allocate.
+     */
+    explicit Cartridge_MBC3_dis() {
+        _data = NULL;
+        _mask = 0xff;
+        _size = 0;
+        _latched = false;
+        _reg = 0;
+        _two = 0;
+        top = NULL;
+    }
+
+    /**
+     * @brief Routine to read from memory.
+     *
+     * Return the value based on the mask to select range of access.
+     *
+     * @param[out] data Data read from memory.
+     * @param[in] addr Address of memory to read.
+     */
+    virtual void read(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+          data = 0xff;
+    }
+
+    /**
+     * @brief Routine to write to memory.
+     *
+     * Set memory at address to data, based on mask.
+     * @param[in] data Data to write to memory.
+     * @param[in] addr Address of memory to write.
+     */
+    virtual void write(uint8_t data, uint16_t addr) override;
+
+    /**
+     * @brief Size of RAM in 256 bytes.
+     *
+     * @return 32 for 8k of RAM.
+     */
+    virtual size_t size() const override {
+       return 32;
+    }
+
+};
+
+/**
  * @brief Banked part of MBC3 type Cartridge.
  *
  * Handles bank switching for MBC3 type cartridges.
@@ -196,12 +264,18 @@ public:
  */
 class Cartridge_MBC3 : public Cartridge_ROM {
     Cartridge_MBC3_bank  *_rom_bank;
+    Cartridge_MBC3_dis    _dis_ram;
 
+    bool                  _extra_banks;
 public:
+    uint32_t              bank_zero;
     Cartridge_MBC3(Memory *mem, uint8_t *data, size_t size, bool color) :
        Cartridge_ROM(mem, data, size, color) {
         _rom_bank = new Cartridge_MBC3_bank(data, size);
        std::cout << "MBC3 Cartridge";
+       _extra_banks = false;
+       bank_zero = 0;
+       _dis_ram.top = this;
     }
 
     Cartridge_MBC3(const Cartridge_MBC3 &) = delete;
@@ -223,6 +297,18 @@ public:
      * (default) the boot ROM is mapped over the lower 256 bytes of ROM.
      */
     virtual void map_cart() override;
+
+    /**
+     * @brief Read a byte from ROM.
+     *
+     * Handle remapping of page 0 for some MBC3 cartridges.
+     *
+     * @param[out] data Value of memory at address.
+     * @param[in] addr Address to access.
+     */
+    virtual void read(uint8_t &data, uint16_t addr) const override {
+       data = _data[bank_zero | addr];
+    }
 
     /**
      * @brief Handle writes to lower bank.

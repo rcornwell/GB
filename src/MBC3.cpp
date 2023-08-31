@@ -290,6 +290,29 @@ void Cartridge_MBC3_RAM::advance_day() {
     _data[_rtc_base + RTC_DL] = v;
 }
 
+void Cartridge_MBC3_dis::write(uint8_t data, uint16_t addr) {
+    if ((addr & 0x100) == 0) {
+        _reg = data & 3;
+    } else {
+        if (_latched) {
+            return;
+        }
+        switch(_reg) {
+        case 0:     if (data == 0xc0) {
+                        _latched = true;
+                    };
+                    break;
+        /* It is unclear what this does, it appears to be mask */
+        case 1:     _mask = data; break;
+        /* It is unclear what is being set here */
+        case 2:     _two = data; break;
+        /* This appears to set the base address of bank 0 */
+        case 3:     top->bank_zero = ((uint32_t)data) << 15;
+                    break;
+        }
+    }
+}
+
 void Cartridge_MBC3_bank::write(uint8_t data, uint16_t addr) {
     /* Preform bank switching */
     switch (addr >> 13) {
@@ -406,6 +429,11 @@ void Cartridge_MBC3::write(uint8_t data, uint16_t addr) {
     case 0:          /* 0x0000 - 0x1fff */
             /* MBC3    enable ram. */
             /*       0xa    - enable. else disable */
+            if ((data & 0xc0) != 0) {
+                _extra_banks = true;
+                _mem->add_slice(&_dis_ram, 0xa000);
+                return;
+            }
             if (_ram == NULL)
                 return;
             if ((data & 0xf) == 0xa) {
@@ -421,6 +449,7 @@ void Cartridge_MBC3::write(uint8_t data, uint16_t addr) {
             if (new_bank == 0) {
                 new_bank = 0x4000;
             }
+            new_bank += bank_zero;
             new_bank &= _size - 1;
             _rom_bank->set_bank(new_bank);
             break;
