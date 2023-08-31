@@ -680,14 +680,17 @@ void Ppu::display_pixel() {
 
         /* For color, update palette selection */
         if ((_ppu_mode & 0xc) == 0) {
-            base = ((flags & OAM_CPAL) << 2) | 0x20 |
+            /* Base is palette, object type and OAM priority */
+            base = ((flags & OAM_CPAL) << 2) | 0x60 |
                     ((flags & OAM_BG_PRI) ? 0x80:0x0);
         } else {
             flags &= ~OAM_BANK;
         }
 
+        /* Figure out whether to overwrite object or not */
         if (_obj_pri == 0 || ((_ppu_mode & 0xc) == 0 && _obj_num > 1 && 
-                      _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num)) {
+                      _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num &&
+                      (_oam._objs[_obj_num-1].X + 8) > _oam._objs[_obj_num].X) ) {
            overwrite = true;
         }
 
@@ -703,13 +706,15 @@ void Ppu::display_pixel() {
         /* Load object into obj fifo. */
         for (int i = 0; i < 8; i++) {
             int    p = (flip)?(7 - i) : i;
-            /* Only update if pixel is transparent */
-            if ((_obj_fifo[i] & 3) == 0 || overwrite) {
-                if ((flags & OAM_BANK) != 0) {
-                    _obj_fifo[i] = _data1._tile[row][p] | base;
-                } else {
-                    _obj_fifo[i] = _data0._tile[row][p] | base;
-                }
+            uint8_t opix;
+            if ((flags & OAM_BANK) != 0) {
+                opix = _data1._tile[row][p] | base;
+            } else {
+                opix = _data0._tile[row][p] | base;
+            }
+            /* Only update if pixel is transparent, or forced overwrite */
+            if ((_obj_fifo[i] & 3) == 0 || (overwrite && (opix & 3) != 0)) {
+                _obj_fifo[i] = opix;
             }
         }
         _obj_num++;
