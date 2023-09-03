@@ -17,3 +17,8 @@ The CPU step() function checks to see if interrupts are enabled and if there are
 ## Memory
 
 The Memory class holds an array of slices which it chooses to access based on the address accessed. The complete address is handed to the object so it must be masked off. add_slice() is called to add areas into memory. free_slice() will point the range back to empty space to disable access.
+
+## Detailed Documenation
+
+. @subpage basics.md  
+. @subpage timer.md  
