@@ -184,10 +184,16 @@ public:
           case 0:                        /* ff04 */
                    if ((_tac & 0x4) != 0) {
                        uint16_t   prev = !!(_div & t_mask[_tac&3]);
+                       uint16_t   prev_snd = !!(_div & _apu_mask);
 
                        /* If new value is enabled trigger count if change */
                        if (prev) {
                            _tima++;
+                       }
+
+                       /* Update sound state 512 times per second */
+                       if (_apu != NULL && prev_snd != 00) {
+                           _apu->cycle_sound();
                        }
                    }
                    _div = 0;
