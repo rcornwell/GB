@@ -1,0 +1,7 @@
+*.mk
+*.project
+*.workspace
+.codelite/
+*.backup
+*.pdf
+Makefile
