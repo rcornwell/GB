@@ -30,10 +30,10 @@
 #include "Apu.h"
 
 const uint8_t Sound::sq_wave[32] = {
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,   /* 12.5 % */
-            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,   /* 25.0 % */
-            0x10, 0x00, 0x00, 0x00, 0x00, 0x10, 0x10, 0x10,   /* 50.0 % */
-            0x00, 0x10, 0x10, 0x10, 0x10, 0x00, 0x00, 0x00    /* 75.0 % */
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f,   /* 12.5 % */
+            0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f,   /* 25.0 % */
+            0x0f, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x0f,   /* 50.0 % */
+            0x00, 0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00    /* 75.0 % */
 };
 
 const uint8_t Sound::int_wave[32] = {
@@ -75,7 +75,6 @@ void Sound::start(bool trigger, bool prev_use_len, bool next_frame_length) {
         _freq_cnt = _int_freq;
 
         /* Set initial frequency and length to play */
-        sample = (_wave[_pos] * _volume) - 128;
         _volume = _int_vol;
         _pos = _wave_start;
         if (_int_vol_len != 0) {
@@ -256,6 +255,9 @@ void Sound::write_reg4(uint8_t data, int next_length) {
     _int_freq = (((uint16_t)(data & 7) << 8) & 0x700) | (_int_freq & 0xff);
     _use_len = (data & 0x40) != 0;
     start(trigger, prev_use_len, next_frame_length);
+    if (trigger) {
+       sample = ((int8_t)_wave[_pos] - 8) * _volume;
+    }
 }
 
 
@@ -370,6 +372,7 @@ void S1::write_reg4(uint8_t data, int next_length) {
     _use_len = (data & 0x40) != 0;
     start(trigger, prev_use_len, next_frame_length);
     if (trigger && active) {
+        sample = ((int8_t)_wave[_pos] - 8) * _volume;
         _shift_ena = (_sweep_shift != 0) || (_sweep_period != 0);
         _sweep_clk = (_sweep_period != 0) ?_sweep_period : 8;
         _last_sub = false;
@@ -467,6 +470,7 @@ void S3::write_wave(uint8_t data, uint16_t index) {
      _wave[index | 1] = (data & 0xf);
 }
 
+
 /**
  * @brief reset channel.
  *
@@ -499,7 +503,7 @@ void S4::shift() {
         _shift_reg |= ((_shift_reg >> 14) ^ (_shift_reg >> 15)) & 1;
     }
     if (_dac_enable) {
-        sample = (((_shift_reg & 0x8000) ? 8: -8) * (int8_t)_volume);
+        sample = ((_shift_reg & 0x8000) ? 7: -8)  * _volume;
     } else {
         sample = 0;
     }
@@ -530,6 +534,8 @@ void S4::cycle() {
         } else {
             _div--;
         }
+    } else {
+        sample = 0;
     }
 }
 
@@ -614,8 +620,7 @@ void Apu::cycle_sound() {
 }
 
 void Apu::cycle() {
-   _sample_cnt++;
-   if (_sample_cnt == 32) {
+   if (_sample_cnt == 0) {
        /* Generate a audio sample */
        SO1 = SO2 = 0;
        if (regs[1] & 0x01) {
@@ -665,8 +670,9 @@ void Apu::cycle() {
        }
        /* Output the sample */
        audio_output(SO1, SO2);
-       _sample_cnt = 0;
+       _sample_cnt = 33;
    }
+   _sample_cnt--;
    /* If not enabled, nothing left to do */
    if (!_enabled) {
        return;

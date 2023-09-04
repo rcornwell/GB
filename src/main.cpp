@@ -374,6 +374,12 @@ audio_output(int8_t right, int8_t left)
 {
    audio_buffer[audio_pos++] = right;
    audio_buffer[audio_pos++] = left;
+   if (audio_pos > 256) {
+       if (!trace_flag && cpu->running) {
+           SDL_QueueAudio(audio_device, (void *)audio_buffer, audio_pos);
+       }
+       audio_pos = 0;
+   }
 }
 
 /**
@@ -401,6 +407,7 @@ run_sim()
     SDL_SetRenderDrawColor( render, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear( render);
     SDL_RenderPresent( render );
+//    SDL_Delay(30000);
     if (trace_flag) {
        cpu->run();
     }
@@ -562,11 +569,6 @@ run_sim()
        }
        /* Tell CPU how many major cycles it should have run */
        cpu->reset_cycles(CYCLES_PER_SCREEN);
-
-       /* If CPU running, push out audio samples */
-       if (cpu->running && !trace_flag)
-           SDL_QueueAudio(audio_device, (void *)audio_buffer, audio_pos);
-       audio_pos = 0;
 
        /* Compute how long to wait for before next screen */
        uint64_t end_time = SDL_GetPerformanceCounter();
