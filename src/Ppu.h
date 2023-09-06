@@ -392,7 +392,7 @@ public:
      ColorPalette() {
          _bg_ctrl = _obj_ctrl = 0;
          for (int i = 0; i <128; i++) {
-             _palette[i] = 0;
+             _palette[i] = 0xff;
          }
      }
 
@@ -476,6 +476,7 @@ class Ppu : public Device {
      int         _vbank;           /**< Current Video bank */
      uint8_t     _ppu_mode;        /**< Ppu mode */
      uint8_t     _obj_pri;         /**< Object priority mode */
+     int         _starting;        /**< Turning on display */
 
 public:
 
@@ -509,6 +510,7 @@ public:
          _vbank = 0;
          _ppu_mode = (color) ? 0x0 : 0xc;
          _obj_pri = !color;
+         _starting = 0;
          /* Clear fifos */
          for (i = 0; i < 8; i++) {
              _pix_fifo[i] = 0;

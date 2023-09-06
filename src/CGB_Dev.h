@@ -36,10 +36,11 @@
  */
 class SVBK : public Device {
     RAM      *_ram;         /**< Pointer to Ram memory */
-    uint8_t   _bank;
+    uint8_t   _bank;        /**< Pointer to current Ram Bank */
+    bool      _dis_bank;    /**< Disable bank selection */
 
 public:
-    explicit SVBK(RAM *ram) : _ram(ram), _bank(1) {}
+    explicit SVBK(RAM *ram) : _ram(ram), _bank(1), _dis_bank(false) {}
 
     /**
      * @brief RAM bank control read register.
@@ -50,7 +51,11 @@ public:
      * @param[in] addr Address of register to read.
      */
      virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
-          data = _bank;
+          if (_dis_bank) {
+              data = 0xff;
+          } else {
+              data = 0xf8 | _bank;
+          }
      }
 
     /**
@@ -64,7 +69,9 @@ public:
      virtual void write_reg(uint8_t data,
                             [[maybe_unused]]uint16_t addr) override {
           _bank = data;
-          _ram->set_bank(data);
+          if (!_dis_bank) {
+              _ram->set_bank(data);
+          }
      }
 
      /**
@@ -84,6 +91,84 @@ public:
      virtual int reg_size() const override {
          return 1;
      }
+
+     /**
+      * @brief set emulation mode.
+      */
+     void dis_bank() {
+          _dis_bank = true;
+     }
+};
+
+/**
+ * @brief Handle selection of video bank on Color Game Boy.
+ *
+ * Device handles VRAM bank switching on color Game Boy.
+ */
+class VBK : public Device {
+    Ppu      *_ppu;         /**< Pointer to PPU device */
+    uint8_t   _bank;        /**< Video bank cache */
+    bool      _dis_bank;    /**< Disable bank selection */
+
+public:
+    explicit VBK(Ppu *ppu) : _ppu(ppu), _bank(0), _dis_bank(false) { }
+
+    /**
+     * @brief RAM bank control read register.
+     *
+     * Returns last bank selected.
+     *
+     * @param[out] data Data read from register.
+     * @param[in] addr Address of register to read.
+     */
+     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
+          if (_dis_bank) {
+             data = 0xff;
+          } else {
+             data = 0xfe | _bank;
+          }
+     }
+
+    /**
+     * @brief RAM bank select register.
+     *
+     * Pass data to RAM object to set bank.
+     *
+     * @param[in] data Data write to register.
+     * @param[in] addr Address of register to write..
+     */
+     virtual void write_reg(uint8_t data,
+                            [[maybe_unused]]uint16_t addr) override {
+          _bank = data;
+          if (!_dis_bank) {
+              _ppu->set_vbank(data);
+          }
+     }
+
+     /**
+      * @brief Base address for VBK register
+      *
+      * @return base address of device.
+      */
+     virtual uint8_t reg_base() const override {
+         return 0x4f;
+     }
+
+     /**
+      * @brief Size of VBK register
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 1;
+     }
+
+     /**
+      * @brief set emulation mode.
+      */
+     void dis_bank() {
+          _dis_bank = true;
+     }
 };
 
 /**
@@ -94,13 +179,16 @@ public:
 class KEY : public Device {
     Ppu      *_ppu;         /**< Pointer to PPU device */
     Memory   *_mem;         /**< Pointer to Memory device */
+    SVBK     *_svbk;        /**< Pointer to Wram Bank */
+    VBK      *_vbk;         /**< Pointer to Vram banking */
     uint8_t   _ppu_mode;    /**< Mode for PPU device. */
     bool      _dis_speed;   /**< Disable speed switching */
 
 public:
     bool      sw_speed;     /**< Switch Speed */
 
-    explicit KEY(Ppu *ppu, Memory *mem) : _ppu(ppu), _mem(mem) {
+    explicit KEY(Ppu *ppu, Memory *mem, SVBK *svbk, VBK *vbk) :
+                   _ppu(ppu), _mem(mem), _svbk(svbk), _vbk(vbk) {
         _ppu_mode = 0;
         sw_speed = false;
         _dis_speed = false;
@@ -120,9 +208,11 @@ public:
               return;
           }
           if ((addr & 1)) {
-              data = (uint8_t)sw_speed;
-              if (_mem->get_speed()) {
-                  data |= 0x80;
+              if ((_ppu_mode & 0xc) == 0) {
+                  data = (uint8_t)sw_speed;
+                  if (_mem->get_speed()) {
+                      data |= 0x80;
+                  }
               }
           } else {
               if (!_mem->get_disable()) {
@@ -153,6 +243,10 @@ public:
                      _dis_speed = true;
                      _mem->dis_hdma = true;
                  }
+                 if ((data & 0xc) != 0) {
+                     _svbk->dis_bank();
+                     _vbk->dis_bank();
+                 }
               }
           }
      }
@@ -173,63 +267,6 @@ public:
       */
      virtual int reg_size() const override {
          return 2;
-     }
-};
-
-/**
- * @brief Handle selection of video bank on Color Game Boy.
- *
- * Device handles VRAM bank switching on color Game Boy.
- */
-class VBK : public Device {
-    Ppu      *_ppu;         /**< Pointer to PPU device */
-    uint8_t   _bank;        /**< Video bank cache */
-
-public:
-    explicit VBK(Ppu *ppu) : _ppu(ppu), _bank(0) { }
-
-    /**
-     * @brief RAM bank control read register.
-     *
-     * Returns last bank selected.
-     *
-     * @param[out] data Data read from register.
-     * @param[in] addr Address of register to read.
-     */
-     virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
-          data = 0xfe | _bank;
-     }
-
-    /**
-     * @brief RAM bank select register.
-     *
-     * Pass data to RAM object to set bank.
-     *
-     * @param[in] data Data write to register.
-     * @param[in] addr Address of register to write..
-     */
-     virtual void write_reg(uint8_t data,
-                            [[maybe_unused]]uint16_t addr) override {
-          _bank = data;
-          _ppu->set_vbank(data);
-     }
-
-     /**
-      * @brief Base address for VBK register
-      *
-      * @return base address of device.
-      */
-     virtual uint8_t reg_base() const override {
-         return 0x4f;
-     }
-
-     /**
-      * @brief Size of VBK register
-      *
-      * @return number of registers.
-      */
-     virtual int reg_size() const override {
-         return 1;
      }
 };
 

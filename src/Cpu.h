@@ -122,8 +122,8 @@ public:
         if (color) {
            cpal = new ColorPalette();
            svbk = new SVBK(ram);
-           key  = new KEY(ppu, mem);
            vbk  = new VBK(ppu);
+           key  = new KEY(ppu, mem, svbk, vbk);
            opri = new OPRI(ppu);
            hdma = new HDMA(mem);
            io->add_device(cpal);

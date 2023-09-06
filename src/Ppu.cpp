@@ -130,7 +130,7 @@ void OAM::scan_oam(int row, uint8_t lcdc)
 void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
     switch (addr & 0x3) {
     case 0:    /* Background color control register */
-            data = _bg_ctrl;
+            data = _bg_ctrl | 0x40;
             break;
 
     case 1:    /* Read background palette at value */
@@ -138,7 +138,7 @@ void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
             break;
 
     case 2:    /* Object color control register */
-            data = _obj_ctrl;
+            data = _obj_ctrl | 0x40;
             break;
 
     case 3:    /* Read Object palette at value */
@@ -216,6 +216,8 @@ void Ppu::enter_mode0()
     if ((STAT & MODE_0_IRQ) != 0) {
         post_irq(PPU_IRQ);
     }
+    _mode = 0;
+    _start = true;
 }
 
 /**
@@ -225,12 +227,14 @@ void Ppu::enter_mode0()
 void Ppu::enter_mode1()
 {
 
-//if (trace_flag) printf("Vblank\n");
-     /* Generate VBlank interrupts */
-     if ((STAT & MODE_1_IRQ) != 0) {
-         post_irq(PPU_IRQ);
-     }
-     post_irq(VBLANK_IRQ);
+if (trace_flag) printf("Vblank\n");
+    /* Generate VBlank interrupts */
+    if ((STAT & MODE_1_IRQ) != 0) {
+        post_irq(PPU_IRQ);
+    }
+    post_irq(VBLANK_IRQ);
+    _mode = 1;
+    _start = true;
 }
 
 /**
@@ -243,11 +247,13 @@ void Ppu::enter_mode2()
     if ((STAT & MODE_2_IRQ) != 0) {
         post_irq(PPU_IRQ);
     }
+    _mode = 2;
+    _start = true;
 }
 
 static int cycle_cnt = 0;
-static int starting = 0;
-static bool _first_line;
+
+
 /**
  * @brief Process a single cycle of pixel engine.
  *
@@ -260,8 +266,8 @@ void Ppu::dot_cycle() {
         return;
     } else {
         check_lyc();
-        if (starting != 0) {
-            starting--;
+        if (_starting != 0) {
+            _starting--;
             return;
         }
     }
@@ -299,18 +305,6 @@ void Ppu::dot_cycle() {
                       _mem->hdma_cycle();
                   }
               }
-              /* Wait until 456 dot times have passed */
-              if (!_first_line) {
-                  if (_dot_clock == 0) {
-                          _mode = 2;
-                          _start = true;
-                  }
-              }
-                  if (_first_line && _dot_clock == 68) {
-                     _mode = 3;
-                     _start = true;
-                     _first_line = false;
-                  }
               LX++;
               if (_dot_clock == 444) {
                   LY++;
@@ -320,15 +314,12 @@ void Ppu::dot_cycle() {
                   /* Bump to next line */
                   if (LY < 144) {
                       /* Set mode to 2 */
-                      _mode = 2;
                       enter_mode2();
                   } else {
                       /* Set mode to 1 */
-                      _mode = 1;
                       enter_mode1();
                   }
 //                  LY++;
-                  _start = true;
                   _dot_clock = 0;
               }
               break;
@@ -337,12 +328,12 @@ void Ppu::dot_cycle() {
               /* When in vertical blanking we wait until hit bottom of screen*/
               if (_start) {
                   _start = false;
-                  _dot_clock = 0;
+//                  _dot_clock = 0;
                   /* Draw current screen */
                   draw_screen();
               }
               /* Wait until line finished */
-              if (_dot_clock == 444) {
+              if (_dot_clock == 456) {
                   LY++;
 //if (trace_flag) printf("LY %d LYC %d %02x\n", LY, LYC, STAT);
               }
@@ -350,11 +341,8 @@ void Ppu::dot_cycle() {
                   if (LY >= 154) {
                      /* Set mode to 2 */
                       enter_mode2();
-                     _mode = 2;
-                     _start = true;
                      _wrow = 0;
                      _wline = 0;
-                     _next_line = false;
                      _wind_en = false;
                      _wind_flg = false;
                       cycle_cnt = 0;
@@ -397,13 +385,12 @@ void Ppu::dot_cycle() {
                   /* Process 1 pixel */
                   display_pixel();
               }
+#if 0
               /* When we hit end, go to HBlank time */
               if (LX == 168) {
                  enter_mode0();
-                 _mode = 0;
-                 _start = true;
-                 _next_line = true;
               }
+#endif
               break;
     }
 }
@@ -546,6 +533,7 @@ void Ppu::display_start() {
    _f_type = BG;
 }
 
+static int mode_0_LX[8] = { 172, 168, 168, 168, 168, 168, 168, 168 };
 /**
  * @brief Process one pixel.
  *
@@ -566,8 +554,9 @@ void Ppu::display_pixel() {
 
     /* Check if into HBlank */
     if (LX >= 168) {
-        _mode = 0;
-        _start = 1;
+        if (LX >= mode_0_LX[SCX & 0x7]) {
+            enter_mode0();
+        }
         LX++;
         return;
     }
@@ -873,11 +862,10 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                if (((LCDC ^ data) & LCDC_ENABLE) != 0) {
                    if ((data & LCDC_ENABLE) != 0) {
                        LX = LY = 0;
-                       _mode = 0;
+                       _mode = 2;
                        _start = true;
-                       _first_line = true;
                        _dot_clock = 0;
-                       starting = 2;
+                       _starting = 2;
                        cycle_cnt = 0;
                    } else {
                        if (_mem) {
@@ -892,9 +880,8 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                        }
                        _mode = 0;
                        _start = false;
-                       _next_line = false;
                        _dot_clock = 0;
-                       starting = 0;
+                       _starting = 0;
                    }
                }
                LCDC = data;
