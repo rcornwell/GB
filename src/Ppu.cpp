@@ -128,6 +128,13 @@ void OAM::scan_oam(int row, uint8_t lcdc)
  * @param[in]  addr Register to read.
  */
 void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
+    /* Ignore reads here when in compatible mode */
+printf("Read %04x ", addr);
+    if (!_enable) {
+printf(" nothing\n");
+        data = 0xff;
+        return;
+    }
     switch (addr & 0x3) {
     case 0:    /* Background color control register */
             data = _bg_ctrl | 0x40;
@@ -145,6 +152,7 @@ void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
             data = _palette[(_obj_ctrl & 0x3f) | 0x40];
             break;
     }
+printf(" %02x\n", data);
 }
 
 /**
@@ -157,6 +165,10 @@ void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
  */
 void ColorPalette::write_reg(uint8_t data, uint16_t addr) {
     int     num;
+    /* Ignore write here when in compatible mode */
+    if (!_enable) {
+        return;
+    }
     switch (addr & 0x3) {
     case 0:    /* Background color control register */
             _bg_ctrl = data;
@@ -210,14 +222,25 @@ void Ppu::check_lyc()
  * @brief Entering Mode 0, post interrupt if enabled.
  *
  */
-void Ppu::enter_mode0()
+void Ppu::enter_mode0(bool go)
 {
     /* Post any interrupts based on line. */
     if ((STAT & MODE_0_IRQ) != 0) {
         post_irq(PPU_IRQ);
     }
     _mode = 0;
-    _start = true;
+    _start = go;
+    /* Activate memory objects that were blocked */
+    if (_mem) {
+        if (_vbank) {
+            _mem->add_slice(&_data1, 0x8000);
+            _mem->add_slice(&_map1, 0x9800);
+        } else {
+            _mem->add_slice(&_data0, 0x8000);
+            _mem->add_slice(&_map0, 0x9800);
+        }
+        _mem->add_slice(&_oam, 0xfe00);
+    }
 }
 
 /**
@@ -251,6 +274,16 @@ void Ppu::enter_mode2()
     _start = true;
 }
 
+/**
+ * @brief Entering Mode 3
+ *
+ */
+void Ppu::enter_mode3()
+{
+    _mode = 3;
+    _start = true;
+}
+
 static int cycle_cnt = 0;
 
 
@@ -271,7 +304,6 @@ void Ppu::dot_cycle() {
             return;
         }
     }
-    check_lyc();
 
 //if (trace_flag) printf("Mode %d LY %d LX %d C %4d %d %d\n", _mode, LY, LX, cycle_cnt, _dot_clock, _dot_clock / 4);
     cycle_cnt++;
@@ -281,17 +313,6 @@ void Ppu::dot_cycle() {
               /* If starting new cycle set things up */
               if (_start) {
                   _start = false;
-                  /* Activate memory objects that were blocked */
-                  if (_mem) {
-                      if (_vbank) {
-                          _mem->add_slice(&_data1, 0x8000);
-                          _mem->add_slice(&_map1, 0x9800);
-                      } else {
-                          _mem->add_slice(&_data0, 0x8000);
-                          _mem->add_slice(&_map0, 0x9800);
-                      }
-                      _mem->add_slice(&_oam, 0xfe00);
-                  }
                   /* If window is being displayed, update to next row */
                   if (_wind_flg) {
                       _wline++;
@@ -306,8 +327,15 @@ void Ppu::dot_cycle() {
                   }
               }
               LX++;
-              if (_dot_clock == 444) {
+              if (LY == 0 && LX == 77) {
+                  /* Scan OAM for 10 objects */
+                  _oam.scan_oam(16, LCDC);
+                  enter_mode3();
+                  break;
+              }
+              if (_dot_clock == 452) {
                   LY++;
+                  check_lyc();
 //if (trace_flag) printf("LY %d LYC %d %02x\n", LY, LYC, STAT);
               }
               if (_dot_clock >= 456) {
@@ -319,7 +347,6 @@ void Ppu::dot_cycle() {
                       /* Set mode to 1 */
                       enter_mode1();
                   }
-//                  LY++;
                   _dot_clock = 0;
               }
               break;
@@ -328,25 +355,26 @@ void Ppu::dot_cycle() {
               /* When in vertical blanking we wait until hit bottom of screen*/
               if (_start) {
                   _start = false;
-//                  _dot_clock = 0;
                   /* Draw current screen */
                   draw_screen();
               }
               /* Wait until line finished */
-              if (_dot_clock == 456) {
+              if (_dot_clock == 452) {
                   LY++;
+                  check_lyc();
 //if (trace_flag) printf("LY %d LYC %d %02x\n", LY, LYC, STAT);
               }
               if (_dot_clock >= 456) {
                   if (LY >= 154) {
                      /* Set mode to 2 */
-                      enter_mode2();
+                     enter_mode0(true);
                      _wrow = 0;
                      _wline = 0;
                      _wind_en = false;
                      _wind_flg = false;
                       cycle_cnt = 0;
                      LY = 0;
+                     LX = 0;
                      init_screen();
                   }
                   _dot_clock = 0;
@@ -364,9 +392,8 @@ void Ppu::dot_cycle() {
               }
               /* Wait until 80 pixels have gone by */
               if (_dot_clock == 80) {
-                  _mode = 3;
-                  _start = true;
                   /* Set mode to 3 */
+                  enter_mode3();
               }
               break;
     case 3:   /* Display */
@@ -377,6 +404,7 @@ void Ppu::dot_cycle() {
                   if (_mem) {
                       _mem->free_slice(0x8000);
                       _mem->free_slice(0x9800);
+                      _mem->free_slice(0xfe00);
                   }
                   LX = 0;
                   /* Initialize the display system */
@@ -385,12 +413,6 @@ void Ppu::dot_cycle() {
                   /* Process 1 pixel */
                   display_pixel();
               }
-#if 0
-              /* When we hit end, go to HBlank time */
-              if (LX == 168) {
-                 enter_mode0();
-              }
-#endif
               break;
     }
 }
@@ -533,7 +555,7 @@ void Ppu::display_start() {
    _f_type = BG;
 }
 
-static int mode_0_LX[8] = { 172, 168, 168, 168, 168, 168, 168, 168 };
+static int mode_0_LX[8] = { 168, 172, 172, 172, 172, 175, 175, 175 };
 /**
  * @brief Process one pixel.
  *
@@ -555,7 +577,7 @@ void Ppu::display_pixel() {
     /* Check if into HBlank */
     if (LX >= 168) {
         if (LX >= mode_0_LX[SCX & 0x7]) {
-            enter_mode0();
+            enter_mode0(true);
         }
         LX++;
         return;
@@ -677,7 +699,7 @@ void Ppu::display_pixel() {
         }
 
         /* Figure out whether to overwrite object or not */
-        if (_obj_pri == 0 || ((_ppu_mode & 0xc) == 0 && _obj_num > 1 && 
+        if (_obj_pri == 0 || ((_ppu_mode & 0xc) == 0 && _obj_num > 1 &&
                       _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num &&
                       (_oam._objs[_obj_num-1].X + 8) > _oam._objs[_obj_num].X) ) {
            overwrite = true;
@@ -862,24 +884,13 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                if (((LCDC ^ data) & LCDC_ENABLE) != 0) {
                    if ((data & LCDC_ENABLE) != 0) {
                        LX = LY = 0;
-                       _mode = 2;
-                       _start = true;
+                       check_lyc();
+                       enter_mode0(true);
                        _dot_clock = 0;
                        _starting = 2;
                        cycle_cnt = 0;
                    } else {
-                       if (_mem) {
-                           if (_vbank) {
-                               _mem->add_slice(&_data1, 0x8000);
-                               _mem->add_slice(&_map1, 0x9800);
-                           } else {
-                               _mem->add_slice(&_data0, 0x8000);
-                               _mem->add_slice(&_map0, 0x9800);
-                           }
-                           _mem->add_slice(&_oam, 0xfe00);
-                       }
-                       _mode = 0;
-                       _start = false;
+                       enter_mode0(false);
                        _dot_clock = 0;
                        _starting = 0;
                    }
@@ -887,11 +898,25 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                LCDC = data;
                break;
      case 0x1: STAT = (data & 0x78) | (STAT & STAT_LYC_F);    /* ff41 */
+               /* Post any interrupts based on line. */
+               if (_mode == 0 && (STAT & MODE_0_IRQ) != 0) {
+                   post_irq(PPU_IRQ);
+               }
+               if (_mode == 1 && (STAT & MODE_1_IRQ) != 0) {
+                   post_irq(PPU_IRQ);
+               }
+               if (_mode == 2 && (STAT & MODE_2_IRQ) != 0) {
+                   post_irq(PPU_IRQ);
+               }
                break;
      case 0x2: SCY = data; break;       /* ff42 */
      case 0x3: SCX = data; break;       /* ff43 */
      case 0x4: break;                   /* ff44 LY */
-     case 0x5: LYC = data; break;       /* ff45 */
+     case 0x5: LYC = data;              /* ff45 */
+               if ((data & LCDC_ENABLE) != 0) {
+                   check_lyc();
+               }
+               break;
      case 0x6: if (_mem) {
                    _mem->write_dma(data);
                }

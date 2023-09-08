@@ -98,7 +98,7 @@
  *     0x70  | SVBK   | WRAM bank             |
  *     0x76  | PCM12  | PCM Audio output 1&2  |
  *     0x77  | PCM34  | PCM Audio output 3&4  |
- *     0x7F-0xFE|     | Internal RAM.         |
+ *     0x80-0xFE|     | Internal RAM.         |
  *     0xFF  | IE     | Interrupt enable      |
  *
  *
@@ -109,7 +109,6 @@ class IO_Space : public Slice {
      Device       *_devs[128];        /**< Pointer to devices */
      Empty_Device  _empty;            /**< Empty device to handle access to unused space */
      Device       *_irq_flg_dev;      /**< IRQ flags device */
-     Device       *_ram_7f;           /**< Ram address 0x7f */
 
      uint8_t      *_irq_en;           /**< Pointer to interrupt enable registers */
      uint8_t      *_irq_flg;          /**< Pointer to interrupt flags register */
@@ -124,13 +123,10 @@ public:
          }
          _irq_flg_dev = new Byte_Device(0xf, _irq_flg, 0xe0);
          _devs[_irq_flg_dev->reg_base()] = _irq_flg_dev;
-         _ram_7f = new Byte_Device(0x7f, &_ram[0x7f], 0x00);
-         _devs[0x7f] = _ram_7f;
      }
 
      ~IO_Space() {
          delete _irq_flg_dev;
-         delete _ram_7f;
      }
 
      /* We don't want to be able to copy this object */

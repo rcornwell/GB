@@ -28,6 +28,7 @@
 #include "Device.h"
 #include "Memory.h"
 #include "Ppu.h"
+#include "Apu.h"
 
 /**
  * @brief Ram bank control device.
@@ -108,10 +109,9 @@ public:
 class VBK : public Device {
     Ppu      *_ppu;         /**< Pointer to PPU device */
     uint8_t   _bank;        /**< Video bank cache */
-    bool      _dis_bank;    /**< Disable bank selection */
 
 public:
-    explicit VBK(Ppu *ppu) : _ppu(ppu), _bank(0), _dis_bank(false) { }
+    explicit VBK(Ppu *ppu) : _ppu(ppu), _bank(0) { }
 
     /**
      * @brief RAM bank control read register.
@@ -122,11 +122,11 @@ public:
      * @param[in] addr Address of register to read.
      */
      virtual void read_reg(uint8_t &data, [[maybe_unused]]uint16_t addr) const override {
-          if (_dis_bank) {
+         if ((_ppu->get_ppu_mode() & 0x4) != 0) {
              data = 0xff;
-          } else {
+         } else {
              data = 0xfe | _bank;
-          }
+         }
      }
 
     /**
@@ -139,10 +139,10 @@ public:
      */
      virtual void write_reg(uint8_t data,
                             [[maybe_unused]]uint16_t addr) override {
-          _bank = data;
-          if (!_dis_bank) {
-              _ppu->set_vbank(data);
-          }
+         if ((_ppu->get_ppu_mode() & 0x4) == 0) {
+             _bank = data;
+             _ppu->set_vbank(data);
+         }
      }
 
      /**
@@ -163,13 +163,78 @@ public:
          return 1;
      }
 
+};
+
+/**
+ * @brief Game Boy Undocumented registers.
+ *
+ * Undocumented register on Color Game Boy
+ */
+class UNDOC : public Device {
+     uint8_t      _reg[8];             /**< Place to hold values in color mode */
+     Apu         *_apu;                /**< Pointer to APU to get sample values */
+     bool         _enable;             /**< Enable extra registers */
+
+public:
+
+     explicit UNDOC(Apu *apu) : _apu(apu) {
+         for (int i = 0; i < 8; i++) {
+             _reg[i] = 0;
+         }
+         _enable = true;
+     }
+
      /**
-      * @brief set emulation mode.
+      * @brief Address of Undocumented registers.
+      *
+      * @return base address of device.
       */
-     void dis_bank() {
-          _dis_bank = true;
+     virtual uint8_t reg_base() const override {
+         return 0x72;
+     }
+
+     /**
+      * @brief Number of Undocumented registers.
+      *
+      * @return number of registers.
+      */
+     virtual int reg_size() const override {
+         return 6;
+     }
+
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override {
+         switch(addr & 0x7) {
+         default:
+              data = _reg[addr & 0x7];
+              break;
+         case 4:
+              if (_enable) {
+                  data = _reg[addr & 0x7];
+              } else {
+                  data = 0xff;
+              }
+              break;
+         case 5:
+              data = _reg[addr & 0x7] | 0x8f;
+              break;
+         case 6:
+              data = (_apu->s1.sample & 0xf0) | ((_apu->s2.sample >> 4) & 0xf);
+              break;
+         case 7:
+              data = (_apu->s3.sample & 0xf0) | ((_apu->s4.sample >> 4) & 0xf);
+              break;
+         }
+     }
+
+     virtual void write_reg(uint8_t data, uint16_t addr) override {
+         _reg[addr & 0x7] = data;
+     }
+
+     void set_disable() {
+         _enable = false;
      }
 };
+
 
 /**
  * @brief Key registers to control speed and PPU modes.
@@ -181,14 +246,16 @@ class KEY : public Device {
     Memory   *_mem;         /**< Pointer to Memory device */
     SVBK     *_svbk;        /**< Pointer to Wram Bank */
     VBK      *_vbk;         /**< Pointer to Vram banking */
+    ColorPalette *_cpal;    /**< Pointer to color palette */
+    UNDOC    *_undoc;       /**< Pointer to undocumented registers */
     uint8_t   _ppu_mode;    /**< Mode for PPU device. */
     bool      _dis_speed;   /**< Disable speed switching */
 
 public:
     bool      sw_speed;     /**< Switch Speed */
 
-    explicit KEY(Ppu *ppu, Memory *mem, SVBK *svbk, VBK *vbk) :
-                   _ppu(ppu), _mem(mem), _svbk(svbk), _vbk(vbk) {
+    explicit KEY(Ppu *ppu, Memory *mem, SVBK *svbk, VBK *vbk, ColorPalette *cpal, UNDOC *undoc) :
+                   _ppu(ppu), _mem(mem), _svbk(svbk), _vbk(vbk), _cpal(cpal), _undoc(undoc) {
         _ppu_mode = 0;
         sw_speed = false;
         _dis_speed = false;
@@ -243,9 +310,12 @@ public:
                      _dis_speed = true;
                      _mem->dis_hdma = true;
                  }
-                 if ((data & 0xc) != 0) {
+                 if ((data & 0x4) != 0) {
+                     _dis_speed = true;
+                     _mem->dis_hdma = true;
                      _svbk->dis_bank();
-                     _vbk->dis_bank();
+                     _cpal->set_disable();
+                     _undoc->set_disable();
                  }
               }
           }
@@ -391,7 +461,11 @@ public:
 
      virtual void read_reg(uint8_t &data,
                                 [[maybe_unused]]uint16_t addr) const override {
-         data = _mode | 0xfe;
+         if ((_ppu->get_ppu_mode() & 0x4) != 0) {
+             data = 0xff;
+         } else {
+             data = _mode | 0xfe;
+         }
      }
 
      virtual void write_reg(uint8_t data,
@@ -400,4 +474,5 @@ public:
          _ppu->set_obj_pri(data);
      }
 };
+
 

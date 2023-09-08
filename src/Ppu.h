@@ -386,6 +386,7 @@ class ColorPalette : public Device {
      uint8_t      _palette[128];    /**< Palette data */
      uint8_t      _bg_ctrl;         /**< Background control data */
      uint8_t      _obj_ctrl;        /**< Object control data */
+     bool         _enable;          /**< Enable color palettes */
 
 public:
 
@@ -394,6 +395,7 @@ public:
          for (int i = 0; i <128; i++) {
              _palette[i] = 0xff;
          }
+         _enable = true;
      }
 
      /**
@@ -417,6 +419,13 @@ public:
      virtual void read_reg(uint8_t &data, uint16_t addr) const override;
 
      virtual void write_reg(uint8_t data, uint16_t addr) override;
+
+     /**
+      * @brief disable color palette registers in compatible mode.
+      */
+     void set_disable() {
+          _enable = false;
+     }
 };
 
 
@@ -556,27 +565,34 @@ public:
           _mem->set_oam(&_oam);
      }
 
-     void check_lyc();
-
-     void set_vbank(uint8_t data);
-
      void set_ppu_mode(uint8_t data);
+
+     uint8_t get_ppu_mode() {
+          return _ppu_mode;
+     }
 
      void set_obj_pri(uint8_t data) {
           _obj_pri = (data & 1);
      }
 
-     void enter_mode0();
+     virtual void read_reg(uint8_t &data, uint16_t addr) const override;
+
+     virtual void write_reg(uint8_t data, uint16_t addr) override;
+
+     void set_vbank(uint8_t data);
+
+     void dot_cycle();
+
+private:
+     void check_lyc();
+
+     void enter_mode0(bool go);
 
      void enter_mode1();
 
      void enter_mode2();
 
-     virtual void read_reg(uint8_t &data, uint16_t addr) const override;
-
-     virtual void write_reg(uint8_t data, uint16_t addr) override;
-
-     void dot_cycle();
+     void enter_mode3();
 
      void fill_pix(int tile, int row);
 

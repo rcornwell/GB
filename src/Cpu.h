@@ -99,6 +99,7 @@ public:
         vbk  = NULL;
         opri = NULL;
         hdma = NULL;
+        undoc= NULL;
         /* These need to be added first since 0xe000 overlaps I/O and video space */
         mem->add_slice(ram, 0xc000);
         mem->add_slice(ram, 0xe000);
@@ -121,9 +122,10 @@ public:
         /* Add in devices specific to Color Game Boy */
         if (color) {
            cpal = new ColorPalette();
+           undoc= new UNDOC(&apu);
            svbk = new SVBK(ram);
            vbk  = new VBK(ppu);
-           key  = new KEY(ppu, mem, svbk, vbk);
+           key  = new KEY(ppu, mem, svbk, vbk, cpal, undoc);
            opri = new OPRI(ppu);
            hdma = new HDMA(mem);
            io->add_device(cpal);
@@ -132,6 +134,7 @@ public:
            io->add_device(vbk);
            io->add_device(opri);
            io->add_device(hdma);
+           io->add_device(undoc);
         }
 
         /* Timer needs to send events to APU, and Cartridge */
@@ -169,6 +172,7 @@ public:
         delete vbk;
         delete opri;
         delete hdma;
+        delete undoc;
     }
 
     Cartridge  *cart;    /**< Cartridge with game */
@@ -195,6 +199,7 @@ public:
     KEY       *key;      /**< Pointer to Key device */
     OPRI      *opri;     /**< Pointer to Object Priority device */
     HDMA      *hdma;     /**< Pointer to Hblank DMA device */
+    UNDOC     *undoc;    /**< Pointer to undocumented Game Boy color register */
     Memory    *mem;      /**< Memory object */
     RAM       *ram;      /**< Working RAM */
     IO_Space  *io;       /**< I/O Space */

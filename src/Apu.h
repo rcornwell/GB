@@ -676,6 +676,7 @@ class Apu : public Device {
      int          _sample_cnt;     /**< Sample counter */
      bool         _enabled;        /**< Sound system enabled */
 
+public:
      S1           s1;              /**< Sound channel 1 */
      S2           s2;              /**< Sound channel 2 */
      S3           s3;              /**< Sound channel 3 */
@@ -683,7 +684,7 @@ class Apu : public Device {
 
      uint8_t      SO1;             /**< Sound output S1 Right */
      uint8_t      SO2;             /**< Sound output S2 Left */
-public:
+
      Apu() {
         _fr_counter = 0;
         _sample_cnt = 0;
