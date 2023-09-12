@@ -129,9 +129,7 @@ void OAM::scan_oam(int row, uint8_t lcdc)
  */
 void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
     /* Ignore reads here when in compatible mode */
-printf("Read %04x ", addr);
     if (!_enable) {
-printf(" nothing\n");
         data = 0xff;
         return;
     }
@@ -152,7 +150,6 @@ printf(" nothing\n");
             data = _palette[(_obj_ctrl & 0x3f) | 0x40];
             break;
     }
-printf(" %02x\n", data);
 }
 
 /**
@@ -367,7 +364,7 @@ void Ppu::dot_cycle() {
               if (_dot_clock >= 456) {
                   if (LY >= 154) {
                      /* Set mode to 2 */
-                     enter_mode0(true);
+                     enter_mode2();
                      _wrow = 0;
                      _wline = 0;
                      _wind_en = false;

@@ -328,6 +328,7 @@ set_palette(int num, uint8_t data)
      }
 }
 
+#define color(x) (((x) << 3) | ((x) >> 2))
 /**
  * @brief Set SDL palette based on packed color data.
  *
@@ -336,9 +337,12 @@ set_palette(int num, uint8_t data)
 void
 set_palette_col(int num, uint8_t data_l, uint8_t data_h)
 {
-     palette[num].r = (data_l & 0x1f) << 3;
-     palette[num].g = ((data_l & 0xe0) >> 3) | ((data_h & 0x3) << 6);
-     palette[num].b = ((data_h & 0x7c) << 1);
+     uint8_t   r = data_l & 0x1f;
+     uint8_t   g = ((data_l & 0xe0) >> 5) | ((data_h & 0x3) << 3);
+     uint8_t   b = (data_h & 0x7c) >> 2;
+     palette[num].r = color(r);
+     palette[num].g = color(g);
+     palette[num].b = color(b);
      palette[num].a = 0xff;
 }
 
