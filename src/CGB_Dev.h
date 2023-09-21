@@ -69,9 +69,9 @@ public:
      */
      virtual void write_reg(uint8_t data,
                             [[maybe_unused]]uint16_t addr) override {
-          _bank = data;
+          _bank = data & 0x7;
           if (!_dis_bank) {
-              _ram->set_bank(data);
+              _ram->set_bank(_bank);
           }
      }
 

@@ -372,6 +372,7 @@ void Ppu::dot_cycle() {
                       cycle_cnt = 0;
                      LY = 0;
                      LX = 0;
+                     check_lyc();
                      init_screen();
                   }
                   _dot_clock = 0;
