@@ -140,8 +140,8 @@ public:
      virtual void write_reg(uint8_t data,
                             [[maybe_unused]]uint16_t addr) override {
          if ((_ppu->get_ppu_mode() & 0x4) == 0) {
-             _bank = data;
-             _ppu->set_vbank(data);
+             _bank = data & 1;
+             _ppu->set_vbank(_bank);
          }
      }
 

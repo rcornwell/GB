@@ -47,23 +47,20 @@
  * the first one that is after the current one in the line. Once we find
  * one we slide all objects down one in the array.
  *
- * @param row  Current row to process.
- * @param lcdc Current value of PPU control register.
+ * @param row      Current row to process.
+ * @param lcdc     Current value of PPU control register.
+ * @param obj_pri  Priority give to object (CGB)
  */
-void OAM::scan_oam(int row, uint8_t lcdc)
+void OAM::scan_oam(int row, uint8_t lcdc, uint8_t obj_pri)
 {
     int    obj;                               /* Current object been check */
     int    ins;                               /* Insertion point */
     int    high = (lcdc & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
-    int    obj_num;                           /* Number working at */
 
     /* Initialize objects to invalid */
     for (obj = 0; obj < 10; obj++) {
-        _objs[obj].X = 0xff;
+        objs[obj].X = 0xff;
     }
-
-    /* Current object number */
-    obj_num = 0;
 
     /* If Objects not enabled, just return */
     if ((lcdc & OBJ_ENABLE) == 0) {
@@ -76,7 +73,7 @@ void OAM::scan_oam(int row, uint8_t lcdc)
          uint8_t  X = _data[obj+TX];
 
          /* Check if we have 10 objects */
-         if (_objs[9].X != 0xff) {
+         if (objs[9].X != 0xff) {
              break;
          }
          /* Check if object in display area. */
@@ -86,11 +83,10 @@ void OAM::scan_oam(int row, uint8_t lcdc)
 
          /* Scan objects looking for first one with X larger */
          for (ins = 0; ins < 10; ins++) {
-             obj_num = ins;
-             if (_objs[ins].X == 0xff) {
+             if (objs[ins].X == 0xff) {
                  break;
              }
-             if (X <= _objs[ins].X) {
+             if (X <= objs[ins].X) {
                  break;
              }
          }
@@ -101,22 +97,70 @@ void OAM::scan_oam(int row, uint8_t lcdc)
          }
 
          /* If X the same keep original */
-         if (_objs[ins].X == X) {
-            continue;
+         if (objs[ins].X == X) {
+            if (obj_pri != 0) {
+                continue;
+            }
+            while(ins < 10 && objs[ins].X == X) {
+                ins++;
+            }
+         }
+
+         /* If no more space break out */
+         if (ins == 10) {
+             break;
          }
 
          /* If X larger, shift later objects down */
-         if (X != _objs[obj_num].X && _objs[obj_num].X != 0xff) {
+         if (X != objs[ins].X && objs[ins].X != 0xff) {
              for (int i = 9; i >= ins && i > 0; i--) {
-                 _objs[i] = _objs[i-1];
+                 objs[i] = objs[i-1];
              }
          }
-         _objs[obj_num].X = X;
-         _objs[obj_num].Y = _data[obj+TY];
-         _objs[obj_num].flags = _data[obj+TF];
-         _objs[obj_num].tile = _data[obj+TT];
-         _objs[obj_num].num = obj;
+         objs[ins].X = X;
+         objs[ins].Y = _data[obj+TY];
+         objs[ins].flags = _data[obj+TF];
+         objs[ins].tile = _data[obj+TT];
+         objs[ins].num = obj;
      }
+}
+
+void OAM::print_oam()
+{
+    for (int i = 0; i < 160; i +=4) {
+        printf("Obj: %d X=%d Y=%d NUM=%02x A=%02x\n", i/4, _data[i+TX],
+            _data[i+TY] - 16, _data[i+TT], _data[i+TF]);
+    }
+}
+
+void OAM::print_sort_oam()
+{
+    for (int i = 0; i < 10; i ++) {
+        printf("Obj: %d X=%d Y=%d NUM=%02x A=%02x\n", i, objs[i].X,
+             objs[i].Y - 16, objs[i].tile, objs[i].flags );
+    }
+}
+
+void Tile_data::print_map(int num)
+{
+    int i, l, k, j;
+    printf("Tile Data %d:\n", num);
+    for (i = 0; i < 3072; i+=64) {
+        printf("%03x: ", i >> 3);
+        for (l = 0; l < 8; l++) {
+            for (k = 0; k < 64; k+=8) {
+                for (j = 0; j < 8; j ++) {
+                    printf("%d", tile[i+l+k][j]);
+                }
+                printf("|");
+            }
+            if (l < 7) {
+                printf("\n     ");
+            }
+        }
+        printf("\n");
+    }
+    printf("\n");
 }
 
 /**
@@ -247,7 +291,7 @@ void Ppu::enter_mode0(bool go)
 void Ppu::enter_mode1()
 {
 
-if (trace_flag) printf("Vblank\n");
+if (trace_flag) printf("Vblank Pri=%d\n", _obj_pri);
     /* Generate VBlank interrupts */
     if ((STAT & MODE_1_IRQ) != 0) {
         post_irq(PPU_IRQ);
@@ -255,6 +299,21 @@ if (trace_flag) printf("Vblank\n");
     post_irq(VBLANK_IRQ);
     _mode = 1;
     _start = true;
+#if 0
+    _oam.print_oam();
+    _data0.print_map(0);
+    _data1.print_map(1);
+    printf("Tile Map:\n");
+    for (i = 0; i < 128 ; i++) {
+        printf("%04x: ", i << 4);
+        for (j = 0; j < 16; j ++) {
+            printf("%02x:%02x ", _map0.data[(i << 4) + j],
+                                 _map1.data[(i << 4) + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+#endif
 }
 
 /**
@@ -279,6 +338,7 @@ void Ppu::enter_mode3()
 {
     _mode = 3;
     _start = true;
+//    _oam.print_sort_oam();
 }
 
 static int cycle_cnt = 0;
@@ -302,7 +362,7 @@ void Ppu::dot_cycle() {
         }
     }
 
-//if (trace_flag) printf("Mode %d LY %d LX %d C %4d %d %d\n", _mode, LY, LX, cycle_cnt, _dot_clock, _dot_clock / 4);
+if (trace_flag) printf("Mode %d LY %d LX %d C %4d %d %d WY %d WX %d SY %d SX %d LCD %02x\n", _mode, LY, LX, cycle_cnt, _dot_clock, _dot_clock / 4, WY, WX, SCY, SCX, LCDC);
     cycle_cnt++;
     _dot_clock++;
     switch(_mode) {
@@ -326,7 +386,7 @@ void Ppu::dot_cycle() {
               LX++;
               if (LY == 0 && LX == 77) {
                   /* Scan OAM for 10 objects */
-                  _oam.scan_oam(16, LCDC);
+                  _oam.scan_oam(16, LCDC, _obj_pri);
                   enter_mode3();
                   break;
               }
@@ -385,11 +445,11 @@ void Ppu::dot_cycle() {
                   if (_mem) {
                       _mem->free_slice(0xfe00);
                   }
-                  /* Scan OAM for 10 objects */
-                  _oam.scan_oam(LY+16, LCDC);
               }
               /* Wait until 80 pixels have gone by */
               if (_dot_clock == 80) {
+                  /* Scan OAM for 10 objects */
+                  _oam.scan_oam(LY+16, LCDC, _obj_pri);
                   /* Set mode to 3 */
                   enter_mode3();
               }
@@ -425,7 +485,7 @@ void Ppu::dot_cycle() {
  * @param row   Current tile row to display.
  */
 void Ppu::fill_pix(int tile, int row) {
-    uint8_t  data;
+    uint8_t  tnum;
     int      ptr;
     int      i;
     uint8_t  attr = 0;
@@ -433,18 +493,18 @@ void Ppu::fill_pix(int tile, int row) {
     uint8_t  pal = 0;
 
     /* Load tile map data */
-    data = _map0._data[tile];
+    tnum = _map0.data[tile];
     if ((_ppu_mode & 0xc) == 0) {
-        attr = _map1._data[tile];
+        attr = _map1.data[tile];
         pal = (attr & 7) << 2;
         pal |= (attr & 0x80);
         flip = (attr & 0x20) != 0;
     }
     /* Compute index of data */
     if ((LCDC & TILE_AREA) != 0) {
-        ptr = (int)data;
+        ptr = (int)tnum;
     } else {
-        ptr = 0x100 + (int)((int8_t)data);
+        ptr = 0x100 + (int)((int8_t)tnum);
     }
     /* Multiply by 8 and add in row */
     ptr <<= 3;
@@ -453,19 +513,19 @@ void Ppu::fill_pix(int tile, int row) {
     } else {
         ptr += row;
     }
-//if (trace_flag) printf("BG %02x %d %02x:", tile, row, data);
+if (trace_flag) printf("BG %03x %d %02x %02x %03x %02x:", tile, row, tnum, attr, ptr, LCDC);
     /* Copy row in place */
     for (i = 0; i < 8; i++) {
          int    p = (flip)?(7 - i) : i;
          if ((attr & 0x8) != 0) {
-             _pix_fifo[i] = _data1._tile[ptr][p] | pal;
+             _pix_fifo[i] = _data1.tile[ptr][p] | pal;
          } else {
-             _pix_fifo[i] = _data0._tile[ptr][p] | pal;
+             _pix_fifo[i] = _data0.tile[ptr][p] | pal;
          }
-//if (trace_flag) printf(" %02x", _pix_fifo[i]);
+if (trace_flag) printf(" %02x", _pix_fifo[i]);
     }
     _pix_count = 7;
-//if (trace_flag) printf("\n");
+if (trace_flag) printf("\n");
 }
 
 /**
@@ -517,13 +577,12 @@ void Ppu::display_start() {
        _wind_en = true;
    }
    /* Compute correct tile to start window on */
-   _wtile = (LCDC & WIND_AREA) ? 0x400 : 0x000;
-   _wtile+= _wrow << 5;
+   _wtile = _wrow << 5;
    /* Compute start of background tile */
    _brow = LY + SCY;
    _btile = (LCDC & BG_AREA) ? 0x400 : 0x000;
-   _btile += (_brow & 0xf8) << 2;
-   _btile += (SCX >> 3);
+   _btile |= (_brow & 0xf8) << 2;
+   _btile += (SCX >> 3) & 0x1f;
    _brow &= 0x7;
    LX = SCX & 0x7;
    /* Clear fifos */
@@ -536,8 +595,8 @@ void Ppu::display_start() {
 //if (trace_flag) printf("Startline LY %d SCY %d LX %d SCX %d t=%04x\n", LY, SCY, LX, SCX, _btile);
    /* If displaying load first tile */
    if ((LCDC & BG_PRIO) != 0 || (_ppu_mode & 0xc) == 0) {
-       fill_pix(_btile, _brow);
-       _btile = (_btile & 0x7e0) | ((_btile+1) & 0x1f);
+       fill_pix(_btile | ((LCDC & BG_AREA) ? 0x400 : 0x000), _brow);
+       _btile = (_btile & 0x3e0) | ((_btile+1) & 0x1f);
    }
 
    /* Adjust the tile to start of X */
@@ -581,6 +640,11 @@ void Ppu::display_pixel() {
         return;
     }
 
+    if (LX < 0) {
+        LX++;
+        return;
+    }
+
     /* Check if Pixel Fetcher should advance to next state */
     if (_f_state != RDY && _f_type != NONE) {
        switch (_f_state) {
@@ -596,6 +660,7 @@ void Ppu::display_pixel() {
 
     /* Check if we need to insert a next tile */
     if (_pix_count == -1) {
+
         /* If displaying window, grab from window space */
         if (_wind_flg) {
            /* Check if fetching right type of tile */
@@ -608,8 +673,8 @@ void Ppu::display_pixel() {
            if (_f_state != RDY) {
                return;
            }
-           fill_pix(_wtile, _wline);
-           _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
+           fill_pix(_wtile | ((LCDC & WIND_AREA) ? 0x400 : 0x000), _wline);
+           _wtile = (_wtile & 0x3e0) | ((_wtile+1) & 0x1f);
         } else {
            /* Else if background, grab from background space */
            /* Check if fetching right type of tile */
@@ -623,8 +688,8 @@ void Ppu::display_pixel() {
                return;
            }
            if ((LCDC & BG_PRIO) != 0 || (_ppu_mode & 0xc) == 0) {
-               fill_pix(_btile, _brow);
-               _btile = (_btile & 0x7e0) | ((_btile+1) & 0x1f);
+               fill_pix(_btile | ((LCDC & BG_AREA) ? 0x400 : 0x000), _brow);
+               _btile = (_btile & 0x3e0) | ((_btile+1) & 0x1f);
            }
         }
         /* Reschedule to grab next Background or window */
@@ -634,7 +699,7 @@ void Ppu::display_pixel() {
 
     /* Check to see if we need to switch to window */
     if (_wind_en && !_wind_flg && ((LX-1) == WX)) {
-        bool flg;
+        bool        flg;
         /* Check if window can be displayed */
         if ((_ppu_mode & 0xc) != 0) {
             flg = (LCDC & (WIND_ENABLE|BG_PRIO)) == (WIND_ENABLE|BG_PRIO);
@@ -654,7 +719,7 @@ void Ppu::display_pixel() {
             }
             _wind_flg = flg;
             /* Set for display of Window and load Window into front of Fifo */
-            fill_pix(_wtile, _wline);
+            fill_pix(_wtile | ((LCDC & WIND_AREA) ? 0x400 : 0x000), _wline);
             _wtile = (_wtile & 0x7e0) | ((_wtile+1) & 0x1f);
             /* Reschedule to grab next Window */
             _f_state = GETA;
@@ -663,7 +728,7 @@ void Ppu::display_pixel() {
     }
 
     /* Check if we need to load an Object */
-    if (_obj_num < 10 && _oam._objs[_obj_num].X == LX) {
+    if (_obj_num < 10 && _oam.objs[_obj_num].X == LX) {
 
         /* Try and fetch a tile */
         if (_f_type != OBJ) {
@@ -677,9 +742,9 @@ void Ppu::display_pixel() {
         }
 
         int        mask = (LCDC & OBJ_SIZE) ? 0x7f0: 0x7f8; /* Mask for hieght */
-        uint8_t    tile = _oam._objs[_obj_num].tile;
+        uint8_t    tile = _oam.objs[_obj_num].tile;
         uint16_t   row = ((uint16_t)tile << 3) & mask;
-        uint8_t    flags = _oam._objs[_obj_num].flags;
+        uint8_t    flags = _oam.objs[_obj_num].flags;
         bool       overwrite = false;
 
         /* Set base palette and priority and whether fliped */
@@ -698,35 +763,42 @@ void Ppu::display_pixel() {
 
         /* Figure out whether to overwrite object or not */
         if (_obj_pri == 0 || ((_ppu_mode & 0xc) == 0 && _obj_num > 1 &&
-                      _oam._objs[_obj_num-1].num < _oam._objs[_obj_num].num &&
-                      (_oam._objs[_obj_num-1].X + 8) > _oam._objs[_obj_num].X) ) {
+                      _oam.objs[_obj_num-1].num < _oam.objs[_obj_num].num &&
+                      (_oam.objs[_obj_num-1].X + 8) < _oam.objs[_obj_num].X) ) {
            overwrite = true;
         }
 
         /* Compute row to show */
-        uint16_t y = (LY + 16) - _oam._objs[_obj_num].Y;
+        uint16_t y = (LY + 16) - _oam.objs[_obj_num].Y;
         if ((flags & OAM_Y_FLIP) != 0) {
             uint16_t high = (LCDC & OBJ_SIZE) ? 16: 8;  /* Hieght of objects. */
             y = high - y - 1;
         }
         row += y;
-//if (trace_flag) printf("Obj %02x %d %04x %04x %d\n", tile, y, row, mask, _oam._objs[_obj_num].num);
+if (trace_flag) printf("Obj %02x y=%d r=%04x m=%04x n=%d f=%02x\n", tile, y, row, mask, _oam.objs[_obj_num].num, flags);
 
+//printf("Data : ");
         /* Load object into obj fifo. */
         for (int i = 0; i < 8; i++) {
             int    p = (flip)?(7 - i) : i;
             uint8_t opix;
             if ((flags & OAM_BANK) != 0) {
-                opix = _data1._tile[row][p] | base;
+                opix = _data1.tile[row][p] | base;
             } else {
-                opix = _data0._tile[row][p] | base;
+                opix = _data0.tile[row][p] | base;
             }
             /* Only update if pixel is transparent, or forced overwrite */
             if ((_obj_fifo[i] & 3) == 0 || (overwrite && (opix & 3) != 0)) {
                 _obj_fifo[i] = opix;
             }
+//        printf("%2x:%02x ", _obj_fifo[i], opix);
         }
+//printf("\n");
         _obj_num++;
+        /* If same X coord go fetch it. */
+        if (_obj_num < 10 && _oam.objs[_obj_num].X == LX) {
+            return;
+        }
         /* Reschedule to grab next Background or Window */
         _f_state = GETA;
         _f_type = (_wind_flg) ? WIN:BG;
@@ -767,7 +839,7 @@ void Ppu::display_pixel() {
             if ((LCDC & OBJ_ENABLE) != 0) {
                 /* background has priority, overwrite if transparent background */
                 if ((opix & 0x80) != 0) {
-                   if ((pix & 0x3) == 0) {
+                   if ((pix & 0x3) == 0 && (opix & 3) != 0) {
                        pix = opix;
                    }
                 } else {

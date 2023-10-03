@@ -113,7 +113,7 @@
 class Tile_data : public Slice {
       uint8_t     _data[6144];        /**< Copy of RAM */
 public:
-      uint8_t     _tile[3072][8];     /**< Expanded pixel data */
+      uint8_t     tile[3072][8];      /**< Expanded pixel data */
 
       Tile_data() {
           for (int i = 0; i < 6144; i++) {
@@ -121,7 +121,7 @@ public:
           }
           for (int i = 0; i < 3072; i++) {
               for (int j = 0; j < 8; j++) {
-                 _tile[i][j] = 0;
+                 tile[i][j] = 0;
               }
           }
       }
@@ -163,7 +163,7 @@ public:
            i = 0;
            /* Copy over the high and low bit to form new pixel. */
            for (i = 0, mask = 0x80; mask != 0; i++, mask >>= 1) {
-               _tile[addr][i] = (!!(low & mask)) | (!!(high & mask)) << 1;
+               tile[addr][i] = (!!(low & mask)) | (!!(high & mask)) << 1;
            }
       }
 
@@ -191,6 +191,14 @@ public:
       * @return Bus number.
       */
      virtual int bus() const override { return 1; }
+
+     /**
+      * @brief Print out tile map.
+      *
+      * @param num Map page number.
+      */
+     void print_map(int num);
+
 };
 
 /**
@@ -203,11 +211,11 @@ public:
  */
 class Tile_map : public Slice {
 public:
-      uint8_t     _data[2048];     /**< Tile map data */
+      uint8_t     data[2048];      /**< Tile map data */
 
       Tile_map() {
           for (int i = 0; i < 2048; i++) {
-               _data[i] = 0;
+               data[i] = 0;
           }
       }
 
@@ -218,8 +226,8 @@ public:
        * @param[out] data Data read from memory.
        * @param[in] addr Address of location to read.
        */
-      virtual void read(uint8_t &data, uint16_t addr) const override {
-           data = _data[addr & 0x07ff];
+      virtual void read(uint8_t &_data, uint16_t addr) const override {
+           _data = data[addr & 0x07ff];
       }
 
       /**
@@ -229,8 +237,8 @@ public:
        * @param[in] data Data read from memory.
        * @param[in] addr Address of location to read.
        */
-      virtual void write(uint8_t data, uint16_t addr) override {
-           _data[addr & 0x07ff] = data;
+      virtual void write(uint8_t _data, uint16_t addr) override {
+           data[addr & 0x07ff] = _data;
       }
 
       /**
@@ -303,7 +311,7 @@ struct OBJ {
 class OAM : public Slice {
       uint8_t    _data[256];      /**< OAM data */
 public:
-      struct OBJ _objs[10];       /**< Sorted object list */
+      struct OBJ objs[10];        /**< Sorted object list */
 
       OAM() {
           for (int i = 0; i < 256; i++) {
@@ -311,15 +319,15 @@ public:
           }
           /* Initialize objects to invalid */
           for (int obj = 0; obj < 10; obj++) {
-              _objs[obj].X = 0xff;
-              _objs[obj].Y = 0xff;
-              _objs[obj].flags = 0;
-              _objs[obj].tile = 0;
+              objs[obj].X = 0xff;
+              objs[obj].Y = 0xff;
+              objs[obj].flags = 0;
+              objs[obj].tile = 0;
           }
       }
 
       /* Scan OAM, documented with code. */
-      void scan_oam(int row, uint8_t lcdc);
+      void scan_oam(int row, uint8_t lcdc, uint8_t obj_pri);
 
       /**
        * @brief Read OAM object data.
@@ -350,6 +358,9 @@ public:
        */
       virtual void write(uint8_t data, uint16_t addr) override {
            _data[addr & 0xff] = data;
+           if ((addr & 0xff) >= 160) {
+                 printf("OAM %04x %02x\n", addr, data);
+           }
       }
 
       /**
@@ -374,6 +385,14 @@ public:
       * @return Bus number.
       */
      virtual int bus() const override { return 2; }
+
+     /**
+      * @brief Debugging function to print out summary of OAM memory.
+      *
+      */
+     void print_oam();
+
+     void print_sort_oam();
 };
 
 /**
@@ -455,7 +474,7 @@ class Ppu : public Device {
      uint8_t     SCX;              /**< Location of main display */
      uint8_t     LY;               /**< Current line being processed */
      uint8_t     LYC;              /**< Line compare register */
-     uint16_t    LX;               /**< Current pixel being processed */
+     int16_t     LX;               /**< Current pixel being processed */
      uint8_t     BGP;              /**< Background palette */
      uint8_t     OBP0;             /**< Object 0 palette */
      uint8_t     OBP1;             /**< Object 1 palette */

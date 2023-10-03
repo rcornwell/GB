@@ -70,6 +70,7 @@ int               audio_pos;          /**< Position to write audio samples */
 
 #define CYCLES_PER_SCREEN 17556
 #define FRAME_TIME        16.650f
+uint8_t           disp[144][160];
 
 int               scale;              /**< Screen scaling */
 bool              POWER;              /**< Game boy power state */
@@ -301,6 +302,19 @@ draw_screen()
     SDL_UpdateTexture( texture, 0, screen, 160 * sizeof(uint32_t));
     SDL_RenderCopy( render, texture, 0, 0);
     SDL_RenderPresent( render );
+#if 0
+printf("Screen:\n");
+    for (int i = 0; i < 144; i++) {
+        printf("  { ", i);
+        for(int j = 0; j < 160; j++) {
+            printf("0x%x, ", disp[i][j]);
+            if ((j % 15) == 14) {
+                printf("\n    ");
+            }
+        }
+        printf("  \n},\n");
+    }
+#endif
 }
 
 SDL_Color base_color[4] = {
@@ -321,9 +335,7 @@ set_palette(int num, uint8_t data)
      int i;
 
      for (i = 0; i < 4; i++) {
-         int c = data & 03;
-
-         palette[num+i] = base_color[c];
+         palette[num+i] = base_color[data & 03];
          data >>= 2;
      }
 }
@@ -356,6 +368,7 @@ draw_pixel(uint8_t pix, int row, int col)
 {
      screen[(row * 160) + col] = SDL_MapRGBA(format,
              palette[pix].r, palette[pix].g, palette[pix].b, 0xff);
+     disp[row][col] = pix;
 }
 
 /**
