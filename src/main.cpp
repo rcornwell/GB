@@ -58,6 +58,7 @@ SDL_Window       *window;
 SDL_Surface      *icon;
 SDL_Renderer     *render;
 SDL_Texture      *texture;
+SDL_Color         cg_palette[128];
 SDL_Color         palette[128];
 SDL_AudioDeviceID audio_device;
 SDL_AudioSpec     request;
@@ -328,23 +329,41 @@ SDL_Color base_color[4] = {
  * @brief Set SDL palette based on packed data.
  *
  * Set drawing colors based on 4 2 bit pixel colors given.
+ *
+ * @param num  entry in palette table to set.
+ * @param data Color palette selection.
+ * @param color Whether to use color palette or base.
  */
 void
-set_palette(int num, uint8_t data)
+set_palette_bw(int num, uint8_t data, bool color)
 {
      int i;
 
+     /* Convert pallete number to color palette index. */
+     if (color && (num & 0xc) != 0) {
+        num += 0x1c;
+     }
+
      for (i = 0; i < 4; i++) {
-         palette[num+i] = base_color[data & 03];
+         if (color) {
+             palette[num+i] = cg_palette[num + (data & 3)];
+         } else {
+             palette[num+i] = base_color[data & 3];
+         }
          data >>= 2;
      }
 }
+
 
 #define color(x) (((x) << 3) | ((x) >> 2))
 /**
  * @brief Set SDL palette based on packed color data.
  *
  * Set drawing colors based on
+ *
+ * @param num    entry to update.
+ * @param data_l Low byte of palette data.
+ * @param data_h High byte of palette data.
  */
 void
 set_palette_col(int num, uint8_t data_l, uint8_t data_h)
@@ -352,27 +371,34 @@ set_palette_col(int num, uint8_t data_l, uint8_t data_h)
      uint8_t   r = data_l & 0x1f;
      uint8_t   g = ((data_l & 0xe0) >> 5) | ((data_h & 0x3) << 3);
      uint8_t   b = (data_h & 0x7c) >> 2;
-     palette[num].r = color(r);
-     palette[num].g = color(g);
-     palette[num].b = color(b);
-     palette[num].a = 0xff;
+     cg_palette[num].r = color(r);
+     cg_palette[num].g = color(g);
+     cg_palette[num].b = color(b);
+     cg_palette[num].a = 0xff;
+     palette[num] = cg_palette[num];
 }
 
 /**
  * @brief Draw a pixel.
  *
  * Draw a rectangle of scale size and given color.
+ *
+ * @param pix  Index into Palette table to use.
+ * @param row  Row of pixel
+ * @param col  Column of pixel
  */
 void
 draw_pixel(uint8_t pix, int row, int col)
 {
      screen[(row * 160) + col] = SDL_MapRGBA(format,
              palette[pix].r, palette[pix].g, palette[pix].b, 0xff);
-     disp[row][col] = pix;
+//     disp[row][col] = pix;
 }
 
 /**
  * @brief Let SDL know where to send keypress/release events.
+ *
+ * @param _joy  Pointer to Joypad object.
  */
 
 void
@@ -385,6 +411,9 @@ set_joypad(Joypad *_joy)
  * @brief Send out one audio sample.
  *
  * Send out a stereo pair of audio samples to let SDL grab them later.
+ *
+ * @param right right channel output.
+ * @param left  left channel output.
  */
 void
 audio_output(int8_t right, int8_t left)

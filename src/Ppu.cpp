@@ -206,10 +206,6 @@ void ColorPalette::read_reg(uint8_t &data, uint16_t addr) const {
  */
 void ColorPalette::write_reg(uint8_t data, uint16_t addr) {
     int     num;
-    /* Ignore write here when in compatible mode */
-    if (!_enable) {
-        return;
-    }
     switch (addr & 0x3) {
     case 0:    /* Background color control register */
             _bg_ctrl = data;
@@ -752,6 +748,12 @@ void Ppu::display_pixel() {
                           ((flags & OAM_BG_PRI) ? 0x80:0x0);
         bool       flip = (flags & OAM_X_FLIP) != 0;
 
+        /* Adjust base pixels for color support */
+        if (_color) {
+            base = ((flags & OAM_PAL) ? 0x24:0x20) |
+                          ((flags & OAM_BG_PRI) ? 0x80:0x0);
+        }
+
         /* For color, update palette selection */
         if ((_ppu_mode & 0xc) == 0) {
             /* Base is palette, object type and OAM priority */
@@ -960,6 +962,7 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                        _starting = 2;
                        cycle_cnt = 0;
                    } else {
+                       LX = LY = 0;
                        enter_mode0(false);
                        _dot_clock = 0;
                        _starting = 0;
@@ -993,17 +996,17 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                break;                   /* ff46 DMA */
      case 0x7: BGP = data;              /* ff47 */
                if ((_ppu_mode & 0xc) != 0) {
-                   set_palette(0, data);
+                   set_palette_bw(0, data, _color);
                }
                break;
      case 0x8: OBP0 = data;             /* ff48 */
                if ((_ppu_mode & 0xc) != 0) {
-                   set_palette(4, data);
+                   set_palette_bw(0x4, data, _color);
                }
                break;
      case 0x9: OBP1 = data;             /* ff49 */
                if ((_ppu_mode & 0xc) != 0) {
-                   set_palette(8, data);
+                   set_palette_bw(0x8, data, _color);
                }
                break;
      case 0xa: WY = data; break;       /* ff4a */

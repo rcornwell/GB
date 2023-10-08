@@ -82,8 +82,6 @@ static inline void store64_int(uint8_t *p, const uint64_t &x) {
  * @brief Routine to read from memory.
  *
  * Return the value based on the mask to select range of access..
- * @param[out] data Data read from memory.
- * @param[in] addr Address of memory to read.
  */
 void Cartridge_MBC3_RAM::read(uint8_t &data, uint16_t addr) const {
     switch(_bank) {
@@ -138,8 +136,6 @@ void Cartridge_MBC3_RAM::read(uint8_t &data, uint16_t addr) const {
  * @brief Routine to write to memory.
  *
  * Set memory at address to data, based on mask.
- * @param[in] data Data to write to memory.
- * @param[in] addr Address of memory to write.
  */
 void Cartridge_MBC3_RAM::write(uint8_t data, uint16_t addr) {
     switch(_bank) {

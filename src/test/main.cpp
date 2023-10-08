@@ -67,9 +67,10 @@ void set_joypad(Joypad *_joy)
     joy = _joy;
 }
 
-void set_palette(int num, uint8_t data)
+void set_palette_bw(int num, uint8_t data, bool color)
 {
 }
+
 
 void set_palette_col(int num, uint8_t data_l, uint8_t data_h)
 {

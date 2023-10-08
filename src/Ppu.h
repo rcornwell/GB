@@ -223,7 +223,7 @@ public:
        * @brief Read tile map Data.
        *
        * Read data in tile map.
-       * @param[out] data Data read from memory.
+       * @param[out] _data Data read from memory.
        * @param[in] addr Address of location to read.
        */
       virtual void read(uint8_t &_data, uint16_t addr) const override {
@@ -234,7 +234,7 @@ public:
        * @brief Write tile map Data.
        *
        * Write data to tile map.
-       * @param[in] data Data read from memory.
+       * @param[in] _data Data read from memory.
        * @param[in] addr Address of location to read.
        */
       virtual void write(uint8_t _data, uint16_t addr) override {
@@ -358,9 +358,6 @@ public:
        */
       virtual void write(uint8_t data, uint16_t addr) override {
            _data[addr & 0xff] = data;
-           if ((addr & 0xff) >= 160) {
-                 printf("OAM %04x %02x\n", addr, data);
-           }
       }
 
       /**

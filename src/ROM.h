@@ -53,7 +53,7 @@ public:
      */
     virtual void read(uint8_t &data, uint16_t addr) const override {
        if (_color) {
-           data = cgb_data[addr & 0x7ff];
+           data = cgb_data[addr & 0xfff];
        } else {
            data = bmg_data[addr & 0xff];
        }
