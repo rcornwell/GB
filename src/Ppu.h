@@ -445,8 +445,7 @@ public:
 };
 
 
-enum Fetcher_State { GETA, GETB, DATALA, DATALB,
-                     DATAHA, DATAHB, RDY };
+enum Fetcher_State { INIT, GETA, GETB, DATALA, DATALB, DATAHA, DATAHB, RDY };
 enum Fetcher_type  { NONE, BG, WIN, OBJ };
 
 /**
@@ -484,6 +483,7 @@ class Ppu : public Device {
      bool        _start;           /**< Starting new mode */
      bool        _wind_en;         /**< Window ok during line */
      bool        _wind_flg;        /**< Grab from window over background */
+     uint8_t     _irq_stat;        /**< Current interrupt flag */
      int         _obj_num;         /**< Current displaying object */
 
      uint8_t     _pix_fifo[8];     /**< Pixel fifo */
@@ -527,6 +527,7 @@ public:
          _mode = 1;
          _wind_en = false;
          _wind_flg = false;
+         _irq_stat = 0;
          _obj_num = 0;
          _wline = _wtile = _wrow = _brow = _btile = 0;
          _dot_clock = 0;
@@ -594,6 +595,8 @@ public:
      virtual void read_reg(uint8_t &data, uint16_t addr) const override;
 
      virtual void write_reg(uint8_t data, uint16_t addr) override;
+
+     virtual void post_irq(uint8_t value) override;
 
      void set_vbank(uint8_t data);
 

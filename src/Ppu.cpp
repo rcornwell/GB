@@ -98,9 +98,6 @@ void OAM::scan_oam(int row, uint8_t lcdc, uint8_t obj_pri)
 
          /* If X the same keep original */
          if (objs[ins].X == X) {
-            if (obj_pri != 0) {
-                continue;
-            }
             while(ins < 10 && objs[ins].X == X) {
                 ins++;
             }
@@ -236,6 +233,60 @@ void ColorPalette::write_reg(uint8_t data, uint16_t addr) {
 }
 
 /**
+ *
+ * @brief Handle interrupt posting.
+ *
+ * @param value Bit to set in IF register.
+ */
+
+void Ppu::post_irq(uint8_t value)
+{
+     /* Check if vblank interrupt */
+     if (value == VBLANK_IRQ) {
+         if (_irq_flg) {
+            *_irq_flg |= value;
+         }
+         return;
+     }
+
+     /* Save current value of _irq_stat */
+     uint8_t  _prev_irq = _irq_stat;
+
+     _irq_stat = 0;
+     /* Update mode bits */
+     switch(_mode) {
+     case 0:      _irq_stat = MODE_0_IRQ;
+                  break;
+     case 1:      _irq_stat = MODE_1_IRQ;
+                  break;
+     case 2:      _irq_stat = MODE_2_IRQ;
+                  break;
+     case 3:      break;
+     }
+
+     /* If MODE 2 IRQ and LY == 144, trigger interrupt */
+     if (LY == 144 && (STAT & MODE_2_IRQ) != 0) {
+        _irq_stat |= MODE_2_IRQ;
+     }
+
+     /* Update LYC status */
+     if ((STAT & STAT_LYC_F) != 0) {
+         _irq_stat |= STAT_LYC_IRQ;
+     }
+
+     /* Clear unmasked bits */
+     _irq_stat &= STAT & (STAT_LYC_IRQ|MODE_2_IRQ|MODE_1_IRQ|MODE_0_IRQ);
+
+     /* If interrupts are now pending post them */
+     if (_irq_stat != 0 && _prev_irq == 0) {
+         if (_irq_flg) {
+            *_irq_flg |= value;
+         }
+     }
+}
+
+
+/**
  * @brief Post LYC match interrupt if match.
  *
  * Compare LY to LYC if they match and interrupt is enabled, post one.
@@ -246,9 +297,7 @@ void Ppu::check_lyc()
     if (LY == LYC) {
         if ((STAT & STAT_LYC_F) == 0) {
             STAT |= STAT_LYC_F;
-            if ((STAT & STAT_LYC_IRQ) != 0) {
-                post_irq(PPU_IRQ);
-            }
+            post_irq(PPU_IRQ);
         }
     } else {
         STAT &= ~STAT_LYC_F;
@@ -261,12 +310,10 @@ void Ppu::check_lyc()
  */
 void Ppu::enter_mode0(bool go)
 {
-    /* Post any interrupts based on line. */
-    if ((STAT & MODE_0_IRQ) != 0) {
-        post_irq(PPU_IRQ);
-    }
     _mode = 0;
     _start = go;
+    post_irq(PPU_IRQ);
+
     /* Activate memory objects that were blocked */
     if (_mem) {
         if (_vbank) {
@@ -288,13 +335,11 @@ void Ppu::enter_mode1()
 {
 
 if (trace_flag) printf("Vblank Pri=%d\n", _obj_pri);
-    /* Generate VBlank interrupts */
-    if ((STAT & MODE_1_IRQ) != 0) {
-        post_irq(PPU_IRQ);
-    }
-    post_irq(VBLANK_IRQ);
     _mode = 1;
     _start = true;
+    /* Generate VBlank interrupts */
+    post_irq(PPU_IRQ);
+    post_irq(VBLANK_IRQ);
 #if 0
     _oam.print_oam();
     _data0.print_map(0);
@@ -318,12 +363,10 @@ if (trace_flag) printf("Vblank Pri=%d\n", _obj_pri);
  */
 void Ppu::enter_mode2()
 {
-    /* interrupt if we want to know mode switch */
-    if ((STAT & MODE_2_IRQ) != 0) {
-        post_irq(PPU_IRQ);
-    }
     _mode = 2;
     _start = true;
+    /* interrupt if we want to know mode switch */
+    post_irq(PPU_IRQ);
 }
 
 /**
@@ -334,6 +377,7 @@ void Ppu::enter_mode3()
 {
     _mode = 3;
     _start = true;
+    post_irq(PPU_IRQ);
 //    _oam.print_sort_oam();
 }
 
@@ -606,6 +650,7 @@ void Ppu::display_start() {
    }
    _f_state = GETA;
    _f_type = BG;
+   LX = -2;
 }
 
 static int mode_0_LX[8] = { 168, 172, 172, 172, 172, 175, 175, 175 };
@@ -636,14 +681,10 @@ void Ppu::display_pixel() {
         return;
     }
 
-    if (LX < 0) {
-        LX++;
-        return;
-    }
-
     /* Check if Pixel Fetcher should advance to next state */
     if (_f_state != RDY && _f_type != NONE) {
        switch (_f_state) {
+       case INIT:    _f_state = GETA; break;
        case GETA:    _f_state = GETB; break;
        case GETB:    _f_state = DATALA; break;
        case DATALA:  _f_state = DATALB; break;
@@ -652,6 +693,11 @@ void Ppu::display_pixel() {
        case DATAHB:  _f_state = RDY; break;
        case RDY:     _f_state = RDY; break;
        }
+    }
+
+    if (LX < 0) {
+        LX++;
+        return;
     }
 
     /* Check if we need to insert a next tile */
@@ -728,7 +774,7 @@ void Ppu::display_pixel() {
 
         /* Try and fetch a tile */
         if (_f_type != OBJ) {
-            _f_state = GETA;
+            _f_state = INIT;
             _f_type = OBJ;
             return;
         }
@@ -799,10 +845,12 @@ if (trace_flag) printf("Obj %02x y=%d r=%04x m=%04x n=%d f=%02x\n", tile, y, row
         _obj_num++;
         /* If same X coord go fetch it. */
         if (_obj_num < 10 && _oam.objs[_obj_num].X == LX) {
+            _f_state = INIT;
+            _f_type = OBJ;
             return;
         }
         /* Reschedule to grab next Background or Window */
-        _f_state = GETA;
+        _f_state = INIT;
         _f_type = (_wind_flg) ? WIN:BG;
     }
 
@@ -971,16 +1019,7 @@ void Ppu::write_reg(uint8_t data, uint16_t addr) {
                LCDC = data;
                break;
      case 0x1: STAT = (data & 0x78) | (STAT & STAT_LYC_F);    /* ff41 */
-               /* Post any interrupts based on line. */
-               if (_mode == 0 && (STAT & MODE_0_IRQ) != 0) {
-                   post_irq(PPU_IRQ);
-               }
-               if (_mode == 1 && (STAT & MODE_1_IRQ) != 0) {
-                   post_irq(PPU_IRQ);
-               }
-               if (_mode == 2 && (STAT & MODE_2_IRQ) != 0) {
-                   post_irq(PPU_IRQ);
-               }
+               post_irq(PPU_IRQ);
                break;
      case 0x2: SCY = data; break;       /* ff42 */
      case 0x3: SCX = data; break;       /* ff43 */
